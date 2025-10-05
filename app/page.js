@@ -4,8 +4,12 @@ import { useState } from "react";
 
 export default function Home() {
   const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
+    setLoading(true);
+    setResult("");
+
     try {
       const response = await fetch("/api/genai", {
         method: "POST",
@@ -13,18 +17,30 @@ export default function Home() {
         body: JSON.stringify({ prompt: "Explain where Pandas usually live" }),
       });
 
-      const data = await response.json();
-      setResult(data.text);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let text = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+        setResult(text); // update UI as chunks arrive
+      }
     } catch (error) {
       console.error("Error calling API:", error);
       setResult("Error calling API");
     }
+
+    setLoading(false);
   };
 
   return (
     <div style={{ padding: "2rem" }}>
       <h1>Gemini API Test</h1>
-      <button onClick={handleClick}>Generate AI Text</button>
+      <button onClick={handleClick} disabled={loading}>
+        {loading ? "Generating..." : "Generate AI Text"}
+      </button>
       <p>{result}</p>
     </div>
   );
