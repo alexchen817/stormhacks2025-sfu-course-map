@@ -5,13 +5,10 @@ import CourseGraph from "./CourseGraph";
 
 export function NavbarWrapper() {
   const [courseData, setCourseData] = useState(null);
-  const [courseLoading, setCourseLoading] = useState(false);
   const [graphData, setGraphData] = useState(null);
   const [graphLoading, setGraphLoading] = useState(false);
-  const [showGraph, setShowGraph] = useState(true);
 
   const handleCourseSearch = async (searchQuery) => {
-    setCourseLoading(true);
     setGraphLoading(true);
     setCourseData(null);
     setGraphData(null);
@@ -75,109 +72,64 @@ export function NavbarWrapper() {
       setGraphLoading(false);
     }
     
-    setCourseLoading(false);
   };
 
   return (
-    <>
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100vh",
+        overflow: "hidden",
+        backgroundColor: "#020617",
+      }}
+    >
       <FloatingNavDemo onSearch={handleCourseSearch} />
-      
-      {/* Course Search Results */}
-      {(courseLoading || courseData || graphData) && (
-        <div 
-          id="course-results"
-          style={{ 
-            padding: "2rem",
-            marginTop: "6rem",
-            maxWidth: "1400px",
-            marginLeft: "auto",
-            marginRight: "auto"
-          }}
-        >
-          {courseLoading && <p>Loading courses...</p>}
-          
-          {graphLoading && <p>Building prerequisite tree...</p>}
-
-          {/* Graph Visualization */}
-          {graphData && graphData.nodes && graphData.nodes.length > 0 && (
-            <div style={{ marginBottom: "2rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                <h2>Prerequisite Tree</h2>
-                <div>
-                  <button 
-                    onClick={() => setShowGraph(!showGraph)}
-                    style={{ 
-                      padding: "0.5rem 1rem", 
-                      marginRight: "0.5rem",
-                      cursor: "pointer",
-                      background: "#3498db",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px"
-                    }}
-                  >
-                    {showGraph ? "Hide Graph" : "Show Graph"}
-                  </button>
-                  <button 
-                    onClick={() => window.resetGraph && window.resetGraph()}
-                    style={{ 
-                      padding: "0.5rem 1rem",
-                      cursor: "pointer",
-                      background: "#2ecc71",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px"
-                    }}
-                  >
-                    Reset Graph
-                  </button>
-                </div>
-              </div>
-              {showGraph && (
-                <div style={{ 
-                  border: "2px solid #ddd", 
-                  borderRadius: "8px",
-                  overflow: "hidden",
-                  background: "#f9f9f9"
-                }}>
-                  <CourseGraph data={graphData} />
-                </div>
-              )}
-              <p style={{ marginTop: "1rem", color: "#666" }}>
-                <strong>Nodes:</strong> {graphData.nodes.length} courses | 
-                <strong> Links:</strong> {graphData.links.length} prerequisites
-              </p>
-            </div>
-          )}
-
-          {/* Course Data JSON */}
-          {courseData && (
-            <div>
-              <h2 style={{ marginBottom: "1rem" }}>Course Details</h2>
-              {courseData.error ? (
-                <p style={{ color: "red" }}>{courseData.error}</p>
-              ) : (
-                <details>
-                  <summary style={{ cursor: "pointer", padding: "0.5rem", background: "#f0f0f0", borderRadius: "4px" }}>
-                    View Raw JSON Data
-                  </summary>
-                  <pre style={{
-                    background: "#f5f5f5",
-                    padding: "1rem",
-                    borderRadius: "4px",
-                    overflow: "auto",
-                    maxHeight: "500px",
-                    border: "1px solid #ddd",
-                    marginTop: "0.5rem"
-                  }}>
-                    {JSON.stringify(courseData, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </>
+      <div
+        id="course-results"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          overflow: "hidden",
+        }}
+      >
+        {graphLoading && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              color: "#F9FAFB",
+              fontSize: "1rem",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+            }}
+          >
+            Building prerequisite tree...
+          </div>
+        )}
+        {!graphLoading && courseData?.error && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              color: "#F87171",
+              fontSize: "1rem",
+              letterSpacing: "0.05em",
+              textAlign: "center",
+            }}
+          >
+            {courseData.error}
+          </div>
+        )}
+        <CourseGraph data={graphData} />
+      </div>
+    </div>
   );
 }
+

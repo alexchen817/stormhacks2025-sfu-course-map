@@ -27,7 +27,7 @@ export const FloatingNav = ({ className, onSearch }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
         className={cn(
-          "relative flex max-w-fit top-10 inset-x-0 mx-auto items-center justify-center space-x-4 border border-transparent pr-2 pl-8 py-2 rounded-full bg-[#374151] shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)] dark:border-white/[0.2] dark:bg-black z-[5000]",
+          "fixed left-1/2 top-8 z-[5000] flex max-w-fit -translate-x-1/2 items-center justify-center space-x-4 rounded-full border border-transparent bg-[#111827]/90 px-10 py-2 shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.25),0px_10px_20px_-15px_rgba(255,255,255,0.15)] backdrop-blur",
           className
         )}
       >
@@ -51,6 +51,13 @@ export const FloatingNav = ({ className, onSearch }) => {
             className="h-9 w-48 rounded-full border border-white/15 bg-white/10 px-4 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/30"
           />
         </label>
+        <button
+          type="button"
+          onClick={() => window.resetGraph && window.resetGraph()}
+          className="h-9 rounded-full border border-white/15 bg-white/10 px-4 text-xs font-medium uppercase tracking-[0.16em] text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+        >
+          Reset View
+        </button>
         <span className="absolute inset-x-0 mx-auto -bottom-px h-px w-1/2 bg-gradient-to-r from-transparent via-red-500 to-transparent" />
       </motion.div>
     </AnimatePresence>
