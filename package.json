@@ -9,12 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/genai": "^1.22.0",
+    "@radix-ui/react-slot": "^1.0.4",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "d3": "^7.9.0",
+    "motion": "^12.23.22",
+    "next": "15.5.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.4"
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "eslint": "^9",
