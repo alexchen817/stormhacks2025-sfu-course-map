@@ -51,7 +51,7 @@
         <mxCell id="SYtOIlXvhytC5fJlyAEb-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="SYtOIlXvhytC5fJlyAEb-18" target="khUBSF5W42iCneQy1zpq-1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="SYtOIlXvhytC5fJlyAEb-24" value="Displays tree view" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="SYtOIlXvhytC5fJlyAEb-23">
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-24" value="Text" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="SYtOIlXvhytC5fJlyAEb-23">
           <mxGeometry x="-0.4889" y="-3" relative="1" as="geometry">
             <mxPoint as="offset" />
           </mxGeometry>
