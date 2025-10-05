@@ -7,47 +7,75 @@ export default function CourseGraph({ data }) {
     const svgRef = useRef();
 
     useEffect(() => {
-        if (!data) return;
+        if (!data || !data.nodes || data.nodes.length === 0) return;
 
         const width = 1200;
         const height = 800;
 
         d3.select(svgRef.current).selectAll("*").remove();
 
+        // Create hierarchy structure
         const nodes = data.nodes.map(d => ({ ...d }));
         const links = data.links.map(d => ({ ...d }));
 
-        // -------------------------
-        // Compute topological levels
-        // -------------------------
-        const adjacency = {};
-        nodes.forEach(n => (adjacency[n.id] = []));
-        links.forEach(l => {
-            const src = l.source;
-            const tgt = l.target;
-            if (!adjacency[src]) adjacency[src] = [];
-            adjacency[src].push(tgt);
+        // Filter out invalid links
+        const nodeIds = new Set(nodes.map(n => n.id));
+        const validLinks = links.filter(l => {
+            const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+            const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+            return nodeIds.has(sourceId) && nodeIds.has(targetId);
         });
 
-        const levels = {};
-        function computeLevel(nodeId) {
-            if (levels[nodeId] !== undefined) return levels[nodeId];
-            const children = adjacency[nodeId] || [];
-            if (children.length === 0) return (levels[nodeId] = 0);
-            const maxChild = Math.max(...children.map(computeLevel));
-            return (levels[nodeId] = maxChild + 1);
+        // Build adjacency list (reversed - from target to sources/prerequisites)
+        const childrenMap = new Map();
+        nodes.forEach(n => childrenMap.set(n.id, []));
+        
+        validLinks.forEach(link => {
+            const source = typeof link.source === 'object' ? link.source.id : link.source;
+            const target = typeof link.target === 'object' ? link.target.id : link.target;
+            if (!childrenMap.has(target)) childrenMap.set(target, []);
+            childrenMap.get(target).push(source);
+        });
+
+        // Find root (course with no incoming edges - the one being searched)
+        const hasParent = new Set();
+        validLinks.forEach(link => {
+            const source = typeof link.source === 'object' ? link.source.id : link.source;
+            hasParent.add(source);
+        });
+        
+        const roots = nodes.filter(n => !hasParent.has(n.id));
+        const root = roots.length > 0 ? roots[0] : nodes[0];
+
+        // Build tree structure
+        function buildTree(nodeId, visited = new Set()) {
+            if (visited.has(nodeId)) return null;
+            visited.add(nodeId);
+
+            const node = nodes.find(n => n.id === nodeId);
+            if (!node) return null;
+
+            const children = (childrenMap.get(nodeId) || [])
+                .map(childId => buildTree(childId, visited))
+                .filter(child => child !== null);
+
+            return {
+                name: node.id,
+                title: node.title,
+                children: children.length > 0 ? children : undefined
+            };
         }
 
-        nodes.forEach(n => computeLevel(n.id));
-        nodes.forEach(n => (n.level = levels[n.id]));
+        const treeData = buildTree(root.id);
+        if (!treeData) return;
 
-        // Set initial positions
-        nodes.forEach(n => {
-            n.x = width / 2;
-            n.y = n.level * 120 + 50;
-            n.initialX = n.x;
-            n.initialY = n.y;
-        });
+        // Create tree layout
+        const treeLayout = d3.tree()
+            .size([width - 100, height - 150])
+            .separation((a, b) => (a.parent === b.parent ? 1 : 1.2));
+
+        const rootNode = d3.hierarchy(treeData);
+        treeLayout(rootNode);
 
         const svg = d3
             .select(svgRef.current)
@@ -55,98 +83,85 @@ export default function CourseGraph({ data }) {
             .attr("height", height)
             .attr("viewBox", [0, 0, width, height])
             .style("max-width", "100%")
-            .style("height", "auto")
-            .style("font-family", "sans-serif");
+            .style("height", "auto");
 
-        // Force simulation
-        const simulation = d3
-            .forceSimulation(nodes)
-            .force("link", d3.forceLink(links).id(d => d.id).distance(150))
-            .force("charge", d3.forceManyBody().strength(-500))
-            .force("center", d3.forceCenter(width / 2, height / 2))
-            .force("x", d3.forceX(width / 2))
-            .force("y", d3.forceY(d => d.level * 120 + 50))
-            .on("tick", ticked);
+        const g = svg.append("g")
+            .attr("transform", `translate(50, 50)`);
 
-        // Links
-        const link = svg
-            .append("g")
+        // Draw links
+        g.selectAll(".link")
+            .data(rootNode.links())
+            .join("path")
+            .attr("class", "link")
+            .attr("d", d3.linkVertical()
+                .x(d => d.x)
+                .y(d => d.y))
+            .attr("fill", "none")
             .attr("stroke", "#999")
-            .attr("stroke-opacity", 0.6)
-            .selectAll("line")
-            .data(links)
-            .join("line")
-            .attr("stroke-width", 2);
+            .attr("stroke-width", 2)
+            .attr("stroke-opacity", 0.6);
 
-        // Nodes as <g>
-        const node = svg
-            .selectAll("g.node")
-            .data(nodes)
+        // Draw nodes
+        const node = g.selectAll(".node")
+            .data(rootNode.descendants())
             .join("g")
             .attr("class", "node")
-            .call(drag(simulation));
+            .attr("transform", d => `translate(${d.x},${d.y})`);
 
+        // Add circles
         node.append("circle")
-            .attr("r", 25)
-            .attr("fill", "#3498db");
+            .attr("r", d => d.depth === 0 ? 35 : 25)
+            .attr("fill", d => d.depth === 0 ? "#e74c3c" : "#3498db")
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 3);
 
+        // Add course code text
         node.append("text")
-            .text(d => d.id)
+            .text(d => d.data.name)
+            .attr("dy", "-2.2em")
             .attr("text-anchor", "middle")
-            .attr("y", -30)
-            .attr("fill", "#fff")
-            .attr("font-size", "12px");
+            .attr("font-size", d => d.depth === 0 ? "14px" : "12px")
+            .attr("font-weight", "bold")
+            .attr("fill", "#333");
 
-        function ticked() {
-            link
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y);
+        // Add drag behavior
+        const drag = d3.drag()
+            .on("start", function(event, d) {
+                d3.select(this).raise().attr("stroke", "black");
+            })
+            .on("drag", function(event, d) {
+                d.x = event.x;
+                d.y = event.y;
+                d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
+                
+                // Update links
+                g.selectAll(".link")
+                    .attr("d", d3.linkVertical()
+                        .x(d => d.x)
+                        .y(d => d.y));
+            })
+            .on("end", function(event, d) {
+                d3.select(this).attr("stroke", null);
+            });
 
-            node.attr("transform", d => `translate(${d.x},${d.y})`);
-        }
-
-        function drag(simulation) {
-            function dragstarted(event, d) {
-                if (!event.active) simulation.alphaTarget(0.3).restart();
-                d.fx = d.x;
-                d.fy = d.y;
-            }
-
-            function dragged(event, d) {
-                d.fx = event.x;
-                d.fy = event.y;
-            }
-
-            function dragended(event, d) {
-                if (!event.active) simulation.alphaTarget(0);
-                d.fx = null;
-                d.fy = null;
-            }
-
-            return d3.drag()
-                .on("start", dragstarted)
-                .on("drag", dragged)
-                .on("end", dragended);
-        }
+        node.call(drag);
 
         // Reset function
         window.resetGraph = () => {
-            nodes.forEach(d => {
-                d.fx = d.initialX;
-                d.fy = d.initialY;
-            });
-            simulation.alpha(1).restart();
-            setTimeout(() => {
-                nodes.forEach(d => {
-                    d.fx = null;
-                    d.fy = null;
-                });
-            });
+            treeLayout(rootNode);
+            
+            node.transition()
+                .duration(750)
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+
+            g.selectAll(".link")
+                .transition()
+                .duration(750)
+                .attr("d", d3.linkVertical()
+                    .x(d => d.x)
+                    .y(d => d.y));
         };
 
-        return () => simulation.stop();
     }, [data]);
 
     return <svg ref={svgRef}></svg>;
