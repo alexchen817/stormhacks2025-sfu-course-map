@@ -3,8 +3,22 @@
 import * as d3 from "d3";
 import { useEffect, useRef } from "react";
 
-export default function CourseGraph({ data }) {
+export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
     const svgRef = useRef();
+    const activeNodeRef = useRef(activeNodeId || null);
+    const highlightRef = useRef(null);
+    const onNodeClickRef = useRef(onNodeClick);
+
+    useEffect(() => {
+        activeNodeRef.current = activeNodeId || null;
+        if (typeof highlightRef.current === "function") {
+            highlightRef.current(activeNodeRef.current);
+        }
+    }, [activeNodeId]);
+
+    useEffect(() => {
+        onNodeClickRef.current = onNodeClick;
+    }, [onNodeClick]);
 
     useEffect(() => {
         if (!svgRef.current) return;
@@ -220,63 +234,27 @@ export default function CourseGraph({ data }) {
 
 
 
-        // Draw nodes
         const node = g.append("g")
             .selectAll("g")
             .data(nodes)
             .join("g")
             .attr("class", "node")
             .on("mouseenter", function (event, d) {
-                // Find all connected nodes
-                const connectedNodeIds = new Set([d.id]);
-
-                node.style("opacity", n => (n.id === d.id ? 1 : 0.35));
-
-                link.style("opacity", l => {
-                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
-                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
-
-                    if (sourceId === d.id) {
-                        connectedNodeIds.add(targetId);
-                        return 1;
-                    }
-
-                    if (targetId === d.id) {
-                        connectedNodeIds.add(sourceId);
-                        return 1;
-                    }
-
-                    return 0.1;
-                });
-
-                node.style("opacity", n => connectedNodeIds.has(n.id) ? 1 : 0.2);
-
-                link.attr("stroke", l => {
-                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
-                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
-
-                    if (sourceId === d.id) {
-                        return "#38bdf8"; // outgoing
-                    }
-
-                    if (targetId === d.id) {
-                        return "#facc15"; // incoming
-                    }
-
-                    return "#64748b";
-                }).attr("stroke-width", l => {
-                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
-                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
-
-                    return (sourceId === d.id || targetId === d.id) ? 3 : 2;
-                });
+                if (typeof highlightRef.current === "function") {
+                    highlightRef.current(d.id);
+                }
             })
             .on("mouseleave", function () {
-                // Reset all styles
-                node.style("opacity", 1);
-                link.style("opacity", 0.4)
-                    .attr("stroke", "#94a3b8")
-                    .attr("stroke-width", 2);
+                if (typeof highlightRef.current === "function") {
+                    highlightRef.current(activeNodeRef.current);
+                }
+            })
+            .on("click", function (event, d) {
+                event.stopPropagation();
+                const handler = onNodeClickRef.current;
+                if (typeof handler === "function") {
+                    handler(d);
+                }
             })
             .call(d3.drag()
                 .on("start", dragstarted)
@@ -334,6 +312,52 @@ export default function CourseGraph({ data }) {
             fitGraphToView();
         });
 
+        const applyHighlight = (focusedId) => {
+            if (!focusedId) {
+                node.style("opacity", 1);
+                link.style("opacity", 0.4)
+                    .attr("stroke", "#94a3b8")
+                    .attr("stroke-width", 2);
+                return;
+            }
+
+            const connectedNodeIds = new Set([focusedId]);
+            const outgoingEdges = new Set();
+            const incomingEdges = new Set();
+
+            validLinks.forEach(linkDatum => {
+                const sourceId = typeof linkDatum.source === "object" ? linkDatum.source.id : linkDatum.source;
+                const targetId = typeof linkDatum.target === "object" ? linkDatum.target.id : linkDatum.target;
+
+                if (sourceId === focusedId) {
+                    outgoingEdges.add(linkDatum);
+                    connectedNodeIds.add(targetId);
+                }
+
+                if (targetId === focusedId) {
+                    incomingEdges.add(linkDatum);
+                    connectedNodeIds.add(sourceId);
+                }
+            });
+
+            node.style("opacity", n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+
+            link
+                .style("opacity", l => (outgoingEdges.has(l) || incomingEdges.has(l)) ? 1 : 0.1)
+                .attr("stroke", l => {
+                    if (outgoingEdges.has(l)) return "#38bdf8";
+                    if (incomingEdges.has(l)) return "#facc15";
+                    return "#64748b";
+                })
+                .attr("stroke-width", l => (outgoingEdges.has(l) || incomingEdges.has(l)) ? 3 : 2);
+        };
+
+        highlightRef.current = applyHighlight;
+
+        if (activeNodeRef.current) {
+            applyHighlight(activeNodeRef.current);
+        }
+
         // Drag functions
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -363,6 +387,10 @@ export default function CourseGraph({ data }) {
             hasInitialFit = false;
             simulation.alpha(1).restart();
             fitGraphToView(600);
+
+            if (typeof highlightRef.current === "function") {
+                highlightRef.current(activeNodeRef.current);
+            }
         };
 
         // Cleanup
@@ -371,6 +399,7 @@ export default function CourseGraph({ data }) {
             if (window.resetGraph) {
                 window.resetGraph = undefined;
             }
+            highlightRef.current = null;
         };
 
     }, [data]);
