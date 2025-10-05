@@ -27,7 +27,7 @@ Return ONLY a valid JSON array like: ["CMPT 125", "MACM 101"]
 Do not include any explanations, just the JSON array.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-lite",
+      model: "gemini-2.0-flash",
       contents: prompt,
     });
 
