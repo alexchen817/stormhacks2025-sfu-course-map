@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { FloatingNavDemo } from "./Navbar";
 import CourseGraph from "./CourseGraph";
 
@@ -50,8 +50,82 @@ export function NavbarWrapper() {
   const [infoError, setInfoError] = useState(null);
   const [infoDetails, setInfoDetails] = useState(null);
   const [infoScrolled, setInfoScrolled] = useState(false);
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false);
+  const [quickSearchQuery, setQuickSearchQuery] = useState("");
+  const [quickSearchResults, setQuickSearchResults] = useState([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const courseInfoCache = useRef(new Map());
   const currentRequestRef = useRef(null);
+  const quickSearchInputRef = useRef(null);
+
+  // Keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+F or Cmd+F
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && graphData) {
+        e.preventDefault();
+        setQuickSearchOpen(true);
+      }
+      // Escape to close
+      if (e.key === 'Escape' && quickSearchOpen) {
+        setQuickSearchOpen(false);
+        setQuickSearchQuery("");
+        setQuickSearchResults([]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [graphData, quickSearchOpen]);
+
+  // Focus input when search opens
+  useEffect(() => {
+    if (quickSearchOpen && quickSearchInputRef.current) {
+      quickSearchInputRef.current.focus();
+    }
+  }, [quickSearchOpen]);
+
+// Filter courses as user types
+useEffect(() => {
+  if (!quickSearchQuery || !graphData?.nodes) {
+    setQuickSearchResults([]);
+    setSelectedIndex(0);
+    return;
+  }
+
+  // Remove all non-alphanumeric characters (spaces, dashes, symbols, etc.)
+  const normalizeString = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  const normalizedQuery = normalizeString(quickSearchQuery);
+  
+  const results = graphData.nodes.filter(node => {
+    const normalizedNodeId = normalizeString(node.id);
+    const nodeTitle = node.title ? node.title.toLowerCase() : '';
+    
+    // Match against normalized ID or original title
+    return normalizedNodeId.includes(normalizedQuery) || 
+           nodeTitle.includes(quickSearchQuery.toLowerCase());
+  }).slice(0, 10);
+
+  setQuickSearchResults(results);
+  setSelectedIndex(0);
+}, [quickSearchQuery, graphData]);
+
+  const handleQuickSearchSelect = (node) => {
+    handleNodeSelect(node);
+    setQuickSearchOpen(false);
+    setQuickSearchQuery("");
+    setQuickSearchResults([]);
+    setSelectedIndex(0);
+    
+    // Trigger zoom to the selected node
+    if (node?.id) {
+      // Small delay to ensure the search modal closes first
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('zoomToNode', { detail: { nodeId: node.id } }));
+      }, 100);
+    }
+  };
 
   const resetInfoPanel = () => {
     setActiveNodeId(null);
@@ -69,10 +143,7 @@ export function NavbarWrapper() {
     resetInfoPanel();
     courseInfoCache.current = new Map();
     
-    // Parse the search query (e.g., "CMPT225" or "CMPT 225")
     const firstCourse = searchQuery.split(',')[0].trim();
-    
-    // Match patterns like "CMPT225", "CMPT 225", etc.
     const match = firstCourse.match(/([A-Z]+)\s*(\d+)/i);
     
     if (match) {
@@ -81,7 +152,6 @@ export function NavbarWrapper() {
       const courseStr = `${dept} ${number}`;
       
       try {
-        // Fetch course data
         const response = await fetch(
           `/api/sfu-courses?dept=${encodeURIComponent(dept)}&number=${encodeURIComponent(number)}`
         );
@@ -93,7 +163,6 @@ export function NavbarWrapper() {
         const data = await response.json();
         setCourseData(data);
         
-        // Build prerequisite graph
         const graphResponse = await fetch('/api/build-graph', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -111,7 +180,6 @@ export function NavbarWrapper() {
         
         setGraphLoading(false);
         
-        // Scroll to results
         setTimeout(() => {
           document.getElementById('course-results')?.scrollIntoView({ 
             behavior: 'smooth',
@@ -127,7 +195,6 @@ export function NavbarWrapper() {
       setCourseData({ error: "Invalid course format. Use format like: CMPT225" });
       setGraphLoading(false);
     }
-    
   };
 
   const handleNodeSelect = async (node) => {
@@ -239,6 +306,210 @@ export function NavbarWrapper() {
       }}
     >
       <FloatingNavDemo onSearch={handleCourseSearch} />
+      
+{/* Quick Search Overlay */}
+{quickSearchOpen && graphData && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      backgroundColor: "rgba(0, 0, 0, 0.7)",
+      backdropFilter: "blur(4px)",
+      zIndex: 6000,
+      display: "flex",
+      alignItems: "flex-start",
+      justifyContent: "center",
+      paddingTop: "15vh",
+    }}
+    onClick={() => {
+      setQuickSearchOpen(false);
+      setQuickSearchQuery("");
+      setQuickSearchResults([]);
+    }}
+  >
+    <div
+      style={{
+        width: "min(550px, 90vw)",
+        background: "rgba(17, 24, 39, 0.92)",
+        borderRadius: "1.25rem",
+        boxShadow: "0 24px 40px -24px rgba(2, 6, 23, 0.85)",
+        backdropFilter: "blur(16px)",
+        border: "none",
+        overflow: "hidden",
+        position: "relative",
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Bottom accent line */}
+      <span
+        style={{
+          position: "absolute",
+          left: "50%",
+          transform: "translateX(-50%)",
+          bottom: "-1px",
+          width: "55%",
+          height: "2px",
+          background: "linear-gradient(90deg, rgba(239, 68, 68, 0), rgba(239, 68, 68, 0.9), rgba(239, 68, 68, 0))",
+          pointerEvents: "none",
+        }}
+      />
+      
+      <div style={{ padding: "1.5rem 1.75rem" }}>
+        {/* Header */}
+        <div style={{ marginBottom: "1rem" }}>
+          <p style={{ 
+            fontSize: "0.8rem", 
+            letterSpacing: "0.12em", 
+            textTransform: "uppercase", 
+            color: "#ef4444", 
+            marginBottom: "0.5rem" 
+          }}>
+            Quick Search
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <input
+              ref={quickSearchInputRef}
+              type="text"
+              placeholder="CMPT 225, Data Structures..."
+              value={quickSearchQuery}
+              onChange={(e) => setQuickSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSelectedIndex(prev => 
+                    prev < quickSearchResults.length - 1 ? prev + 1 : prev
+                  );
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSelectedIndex(prev => prev > 0 ? prev - 1 : 0);
+                } else if (e.key === 'Enter' && quickSearchResults.length > 0) {
+                  handleQuickSearchSelect(quickSearchResults[selectedIndex]);
+                }
+              }}
+              style={{
+                flex: 1,
+                padding: "0.75rem 1rem",
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                borderRadius: "0.5rem",
+                color: "#F8FAFC",
+                fontSize: "0.95rem",
+                outline: "none",
+              }}
+            />
+            <button
+              onClick={() => {
+                setQuickSearchOpen(false);
+                setQuickSearchQuery("");
+                setQuickSearchResults([]);
+              }}
+              style={{
+                padding: "0.25rem 0.7rem",
+                background: "rgba(248, 113, 113, 0.14)",
+                border: "none",
+                borderRadius: "999px",
+                color: "rgba(248, 250, 252, 0.9)",
+                fontSize: "0.72rem",
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+        
+        {/* Instructions */}
+        <p style={{ 
+          fontSize: "0.78rem", 
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "rgba(226, 232, 240, 0.65)", 
+          marginBottom: "1rem" 
+        }}>
+          Use <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>↑</kbd> <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>↓</kbd> to navigate, <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>Enter</kbd> to select
+        </p>
+      </div>
+      
+      {/* Results */}
+      {quickSearchResults.length > 0 && (
+        <div style={{ 
+          maxHeight: "400px", 
+          overflowY: "auto",
+          borderTop: "1px solid rgba(255, 255, 255, 0.08)"
+        }}>
+          {quickSearchResults.map((node, index) => (
+            <div
+              key={node.id}
+              onClick={() => handleQuickSearchSelect(node)}
+              style={{
+                padding: "1rem 1.75rem",
+                borderBottom: index < quickSearchResults.length - 1 ? "1px solid rgba(255, 255, 255, 0.05)" : "none",
+                cursor: "pointer",
+                background: index === selectedIndex ? "rgba(59, 130, 246, 0.15)" : "transparent",
+                transition: "background 0.2s",
+                position: "relative",
+              }}
+              onMouseEnter={(e) => {
+                setSelectedIndex(index);
+                e.currentTarget.style.background = "rgba(59, 130, 246, 0.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = index === selectedIndex ? "rgba(59, 130, 246, 0.15)" : "transparent";
+              }}
+            >
+              {index === selectedIndex && (
+                <div style={{
+                  position: "absolute",
+                  left: "0.75rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "#60a5fa",
+                  fontSize: "0.9rem",
+                }}>
+                  ▶
+                </div>
+              )}
+              <div style={{ 
+                fontWeight: 700, 
+                color: "#60a5fa", 
+                fontSize: "0.95rem",
+                marginBottom: node.title ? "0.25rem" : 0,
+                letterSpacing: "0.02em"
+              }}>
+                {node.id}
+              </div>
+              {node.title && (
+                <div style={{ 
+                  fontSize: "0.85rem", 
+                  color: "rgba(226, 232, 240, 0.85)",
+                  lineHeight: 1.4
+                }}>
+                  {node.title.length > 60 ? node.title.substring(0, 60) + "..." : node.title}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* No results message */}
+      {quickSearchQuery && quickSearchResults.length === 0 && (
+        <div style={{ 
+          padding: "2rem 1.75rem", 
+          textAlign: "center", 
+          color: "rgba(226, 232, 240, 0.65)",
+          fontSize: "0.9rem",
+          borderTop: "1px solid rgba(255, 255, 255, 0.08)"
+        }}>
+          No courses found matching "{quickSearchQuery}"
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
       <div
         id="course-results"
         style={{
@@ -474,7 +745,6 @@ export function NavbarWrapper() {
               pointerEvents: "auto",
               lineHeight: 1.5,
               border: "none",
-              position: "absolute",
             }}
           >
             <button
@@ -520,6 +790,9 @@ export function NavbarWrapper() {
                 • <strong>Click</strong> a course to open its SFU outline card.
               </li>
               <li style={{ marginBottom: "0.65rem" }}>
+                • <strong>Ctrl+F / ⌘F</strong> to quick search. Use <strong>↑↓</strong> arrow keys to navigate results.
+              </li>
+              <li style={{ marginBottom: "0.65rem" }}>
                 • <strong>Scroll / pinch</strong> anywhere to zoom in or out.
               </li>
               <li style={{ marginBottom: "0.9rem" }}>
@@ -560,7 +833,7 @@ export function NavbarWrapper() {
                   background: "rgba(17, 24, 39, 0.9)",
                   color: "#F8FAFC",
                   border: "none",
-                  letterSpacing: "0.12em",
+                  letterSpacing: "0",
                   fontSize: "0.75rem",
                   textTransform: "uppercase",
                   cursor: "pointer",
