@@ -14,7 +14,7 @@ export default function CourseGraph({ data }) {
 
         d3.select(svgRef.current).selectAll("*").remove();
 
-        // Create hierarchy structure
+        // Use the data directly - no tree conversion needed!
         const nodes = data.nodes.map(d => ({ ...d }));
         const links = data.links.map(d => ({ ...d }));
 
@@ -26,60 +26,78 @@ export default function CourseGraph({ data }) {
             return nodeIds.has(sourceId) && nodeIds.has(targetId);
         });
 
-        // Build adjacency list (reversed - from target to sources/prerequisites)
-        const childrenMap = new Map();
-        nodes.forEach(n => childrenMap.set(n.id, []));
+        // Find the root node (the course being searched - has no incoming edges)
+        const hasIncoming = new Set();
+        validLinks.forEach(link => {
+            const source = typeof link.source === 'object' ? link.source.id : link.source;
+            hasIncoming.add(source);
+        });
+        const rootNode = nodes.find(n => !hasIncoming.has(n.id)) || nodes[0];
 
+        // Calculate depth for each node (BFS from root)
+        const depths = new Map();
+        const queue = [{ id: rootNode.id, depth: 0 }];
+        const visited = new Set();
+
+        depths.set(rootNode.id, 0);
+
+        while (queue.length > 0) {
+            const { id, depth } = queue.shift();
+            if (visited.has(id)) continue;
+            visited.add(id);
+
+            // Find all prerequisites (nodes this course points to)
+            validLinks.forEach(link => {
+                const target = typeof link.target === 'object' ? link.target.id : link.target;
+                const source = typeof link.source === 'object' ? link.source.id : link.source;
+
+                if (target === id && !visited.has(source)) {
+                    const existingDepth = depths.get(source);
+                    const newDepth = depth + 1;
+
+                    if (existingDepth === undefined || newDepth < existingDepth) {
+                        depths.set(source, newDepth);
+                    }
+
+                    queue.push({ id: source, depth: newDepth });
+                }
+            });
+        }
+
+        // Assign depth to all nodes
+        nodes.forEach(node => {
+            node.depth = depths.get(node.id) || 0;
+        });
+
+        // Group nodes by depth for horizontal spacing
+        const nodesByDepth = new Map();
+        nodes.forEach(node => {
+            if (!nodesByDepth.has(node.depth)) {
+                nodesByDepth.set(node.depth, []);
+            }
+            nodesByDepth.get(node.depth).push(node);
+        });
+
+        // Calculate initial positions
+        const maxDepth = Math.max(...depths.values());
+        const verticalSpacing = (height - 150) / (maxDepth || 1);
+
+        nodesByDepth.forEach((nodesAtDepth, depth) => {
+            const horizontalSpacing = width / (nodesAtDepth.length + 1);
+            nodesAtDepth.forEach((node, i) => {
+                node.x = horizontalSpacing * (i + 1);
+                node.y = 75 + depth * verticalSpacing;
+            });
+        });
+
+        // Identify OR relationships (multiple nodes pointing to same target)
+        const linksByTarget = new Map();
         validLinks.forEach(link => {
             const source = typeof link.source === 'object' ? link.source.id : link.source;
             const target = typeof link.target === 'object' ? link.target.id : link.target;
-            if (!childrenMap.has(target)) childrenMap.set(target, []);
-            childrenMap.get(target).push(source);
+            if (!linksByTarget.has(target)) linksByTarget.set(target, []);
+            linksByTarget.get(target).push(source);
         });
-
-        // Find root (course with no incoming edges - the one being searched)
-        const hasParent = new Set();
-        validLinks.forEach(link => {
-            const source = typeof link.source === 'object' ? link.source.id : link.source;
-            hasParent.add(source);
-        });
-
-        const roots = nodes.filter(n => !hasParent.has(n.id));
-        const root = roots.length > 0 ? roots[0] : nodes[0];
-
-        // Build tree structure - FIXED: Allow nodes to appear multiple times
-        function buildTree(nodeId, ancestorPath = new Set()) {
-            // Only prevent infinite loops by checking the current path
-            if (ancestorPath.has(nodeId)) return null;
-
-            const node = nodes.find(n => n.id === nodeId);
-            if (!node) return null;
-
-            // Add to current path to detect cycles
-            const newPath = new Set(ancestorPath);
-            newPath.add(nodeId);
-
-            const children = (childrenMap.get(nodeId) || [])
-                .map(childId => buildTree(childId, newPath))
-                .filter(child => child !== null);
-
-            return {
-                name: node.id,
-                title: node.title,
-                children: children.length > 0 ? children : undefined
-            };
-        }
-
-        const treeData = buildTree(root.id);
-        if (!treeData) return;
-
-        // Create tree layout
-        const treeLayout = d3.tree()
-            .size([width - 100, height - 150])
-            .separation((a, b) => (a.parent === b.parent ? 1 : 1.2));
-
-        const rootNode = d3.hierarchy(treeData);
-        treeLayout(rootNode);
 
         const svg = d3
             .select(svgRef.current)
@@ -89,81 +107,177 @@ export default function CourseGraph({ data }) {
             .style("max-width", "100%")
             .style("height", "auto");
 
-        const g = svg.append("g")
-            .attr("transform", `translate(50, 50)`);
+        const g = svg.append("g");
+
+        // Create force simulation with strong positioning forces
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(validLinks)
+                .id(d => d.id)
+                .distance(100)
+                .strength(0.5))
+            .force("charge", d3.forceManyBody().strength(-400))
+            .force("collision", d3.forceCollide().radius(40))
+            // Strong vertical force to maintain depth levels
+            .force("y", d3.forceY()
+                .y(d => 75 + d.depth * verticalSpacing)
+                .strength(1.2))
+            // Moderate horizontal force to prevent overlap
+            .force("x", d3.forceX()
+                .x(d => {
+                    const nodesAtDepth = nodesByDepth.get(d.depth);
+                    const index = nodesAtDepth.indexOf(d);
+                    const horizontalSpacing = width / (nodesAtDepth.length + 1);
+                    return horizontalSpacing * (index + 1);
+                })
+                .strength(0.3));
+
+        // Add arrow markers for directed edges
+        svg.append("defs").selectAll("marker")
+            .data(["arrow"])
+            .join("marker")
+            .attr("id", "arrow")
+            .attr("viewBox", "0 -5 10 10")
+            .attr("refX", 35)
+            .attr("refY", 0)
+            .attr("markerWidth", 6)
+            .attr("markerHeight", 6)
+            .attr("orient", "auto")
+            .append("path")
+            .attr("d", "M0,-5L10,0L0,5")
+            .attr("fill", "#999");
 
         // Draw links
-        g.selectAll(".link")
-            .data(rootNode.links())
+        const link = g.append("g")
+            .selectAll("path")
+            .data(validLinks)
             .join("path")
             .attr("class", "link")
-            .attr("d", d3.linkVertical()
-                .x(d => d.x)
-                .y(d => d.y))
             .attr("fill", "none")
             .attr("stroke", "#999")
             .attr("stroke-width", 2)
-            .attr("stroke-opacity", 0.6);
+            .attr("stroke-opacity", 0.6)
+            .attr("marker-end", "url(#arrow)");
+
+
 
         // Draw nodes
-        const node = g.selectAll(".node")
-            .data(rootNode.descendants())
+        const node = g.append("g")
+            .selectAll("g")
+            .data(nodes)
             .join("g")
             .attr("class", "node")
-            .attr("transform", d => `translate(${d.x},${d.y})`);
+            .on("mouseenter", function (event, d) {
+                // Find all connected nodes
+                const connectedNodeIds = new Set();
+                connectedNodeIds.add(d.id);
+
+                validLinks.forEach(link => {
+                    const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                    const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+
+                    if (sourceId === d.id) connectedNodeIds.add(targetId);
+                    if (targetId === d.id) connectedNodeIds.add(sourceId);
+                });
+
+                // Dim all nodes and links
+                node.style("opacity", n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+                link.style("opacity", l => {
+                    const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                    const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                    return (sourceId === d.id || targetId === d.id) ? 1 : 0.1;
+                });
+
+                // Highlight connected links
+                link.attr("stroke", l => {
+                    const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                    const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                    return (sourceId === d.id || targetId === d.id) ? "#e74c3c" : "#999";
+                })
+                    .attr("stroke-width", l => {
+                        const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                        const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                        return (sourceId === d.id || targetId === d.id) ? 3 : 2;
+                    });
+            })
+            .on("mouseleave", function () {
+                // Reset all styles
+                node.style("opacity", 1);
+                link.style("opacity", 0.6)
+                    .attr("stroke", "#999")
+                    .attr("stroke-width", 2);
+            })
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
 
         // Add circles
         node.append("circle")
-            .attr("r", d => d.depth === 0 ? 35 : 25)
-            .attr("fill", d => d.depth === 0 ? "#e74c3c" : "#3498db")
+            .attr("r", d => d.id === rootNode.id ? 35 : 25)
+            .attr("fill", d => d.id === rootNode.id ? "#e74c3c" : "#3498db")
             .attr("stroke", "#fff")
             .attr("stroke-width", 3);
 
         // Add course code text
         node.append("text")
-            .text(d => d.data.name)
+            .text(d => d.id)
             .attr("dy", "-2.2em")
             .attr("text-anchor", "middle")
-            .attr("font-size", d => d.depth === 0 ? "14px" : "12px")
+            .attr("font-size", d => d.id === rootNode.id ? "14px" : "12px")
             .attr("font-weight", "bold")
             .attr("fill", "#333");
 
-        // Add drag behavior
-        const drag = d3.drag()
-            .on("start", function (event, d) {
-                d3.select(this).raise().attr("stroke", "black");
-            })
-            .on("drag", function (event, d) {
-                d.x = event.x;
-                d.y = event.y;
-                d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
-
-                // Update links
-                g.selectAll(".link")
-                    .attr("d", d3.linkVertical()
-                        .x(d => d.x)
-                        .y(d => d.y));
-            })
-            .on("end", function (event, d) {
-                d3.select(this).attr("stroke", null);
+        // Update positions on simulation tick
+        simulation.on("tick", () => {
+            link.attr("d", d => {
+                return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`;
             });
 
-        node.call(drag);
+            node.attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        // Drag functions
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        // Add zoom
+        const zoom = d3.zoom()
+            .scaleExtent([0.3, 3])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
 
         // Reset function
         window.resetGraph = () => {
-            treeLayout(rootNode);
+            // Reset fixed positions
+            nodes.forEach(node => {
+                node.fx = null;
+                node.fy = null;
+            });
 
-            node.transition()
-                .duration(750)
-                .attr("transform", d => `translate(${d.x},${d.y})`);
+            simulation.alpha(1).restart();
+            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+        };
 
-            g.selectAll(".link")
-                .transition()
-                .duration(750)
-                .attr("d", d3.linkVertical()
-                    .x(d => d.x)
-                    .y(d => d.y));
+        // Cleanup
+        return () => {
+            simulation.stop();
         };
 
     }, [data]);
