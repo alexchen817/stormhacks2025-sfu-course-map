@@ -144,42 +144,68 @@ useEffect(() => {
     courseInfoCache.current = new Map();
     
     const firstCourse = searchQuery.split(',')[0].trim();
-    const match = firstCourse.match(/([A-Z]+)\s*(\d+)/i);
+    // Updated regex to capture letter suffixes like W, D, E
+    const match = firstCourse.match(/([A-Z]+)\s*(\d+)([A-Z]*)/i);
     
     if (match) {
       const dept = match[1].toUpperCase();
       const number = match[2];
-      const courseStr = `${dept} ${number}`;
+      const suffix = match[3] ? match[3].toUpperCase() : '';
+      const courseStr = `${dept} ${number}${suffix}`;
       
       try {
+        // Fetch course data
         const response = await fetch(
-          `/api/sfu-courses?dept=${encodeURIComponent(dept)}&number=${encodeURIComponent(number)}`
+          `/api/sfu-courses?dept=${encodeURIComponent(dept)}&number=${encodeURIComponent(number)}${suffix}`
         );
         
         if (!response.ok) {
-          throw new Error("Failed to fetch courses");
+          throw new Error(`Course ${courseStr} not found`);
         }
         
         const data = await response.json();
+        
+        if (!data || data.length === 0) {
+          throw new Error(`No data returned for ${courseStr}`);
+        }
+        
         setCourseData(data);
         
+        // Build prerequisite graph
         const graphResponse = await fetch('/api/build-graph', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ startCourse: courseStr }),
         });
-
+  
         if (graphResponse.ok) {
           const graph = await graphResponse.json();
           console.log("Graph data received:", graph);
-          setGraphData(graph);
+          
+          // Check if graph has any nodes
+          if (!graph.nodes || graph.nodes.length === 0) {
+            setCourseData({ 
+              ...data, 
+              warning: `${courseStr} could not be found or has data issues.` 
+            });
+          } else if (graph.nodes.length === 1 && graph.links.length === 0) {
+            // Single node with no prerequisites
+            setGraphData(graph);
+          } else {
+            setGraphData(graph);
+          }
         } else {
           const errorData = await graphResponse.json();
           console.error("Failed to build graph:", graphResponse.status, errorData);
+          setCourseData({ 
+            ...data, 
+            warning: "Failed to build prerequisite graph for this course." 
+          });
         }
         
         setGraphLoading(false);
         
+        // Scroll to results
         setTimeout(() => {
           document.getElementById('course-results')?.scrollIntoView({ 
             behavior: 'smooth',
@@ -188,11 +214,11 @@ useEffect(() => {
         }, 100);
       } catch (error) {
         console.error("Error fetching courses:", error);
-        setCourseData({ error: "Failed to fetch course data" });
+        setCourseData({ error: error.message || "Failed to fetch course data" });
         setGraphLoading(false);
       }
     } else {
-      setCourseData({ error: "Invalid course format. Use format like: CMPT225" });
+      setCourseData({ error: "Invalid course format. Use format like: CMPT225 or CMPT105W" });
       setGraphLoading(false);
     }
   };
