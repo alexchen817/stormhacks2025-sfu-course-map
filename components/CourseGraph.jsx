@@ -118,6 +118,49 @@ export default function CourseGraph({ data }) {
 
         const g = svg.append("g");
 
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 3])
+            .on("zoom", (event) => {
+                g.attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+
+        const topMargin = 120;
+        const sidePadding = 56;
+        const bottomPadding = 48;
+
+        const fitGraphToView = (duration = 750) => {
+            const graphBounds = g.node()?.getBBox();
+            if (!graphBounds || !isFinite(graphBounds.width) || !isFinite(graphBounds.height)) {
+                return;
+            }
+
+            const graphWidth = Math.max(graphBounds.width, 1);
+            const graphHeight = Math.max(graphBounds.height, 1);
+
+            const availableWidth = Math.max(width - sidePadding * 2, 1);
+            const availableHeight = Math.max(height - topMargin - bottomPadding, 1);
+
+            const rawScale = Math.min(availableWidth / graphWidth, availableHeight / graphHeight, 2.5);
+            const scale = Math.min(Math.max(rawScale, 0.1), 3);
+
+            const graphCenterX = graphBounds.x + graphWidth / 2;
+            const graphCenterY = graphBounds.y + graphHeight / 2;
+
+            const targetCenterX = width / 2;
+            const targetCenterY = topMargin + availableHeight / 2;
+
+            const translateX = targetCenterX - scale * graphCenterX;
+            const translateY = targetCenterY - scale * graphCenterY;
+
+            const transform = d3.zoomIdentity.translate(translateX, translateY).scale(scale);
+
+            svg.transition().duration(duration).call(zoom.transform, transform);
+        };
+
+        let hasInitialFit = false;
+
         // Create force simulation with strong positioning forces
         const simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(validLinks)
@@ -248,6 +291,15 @@ export default function CourseGraph({ data }) {
             });
 
             node.attr("transform", d => `translate(${d.x},${d.y})`);
+
+            if (!hasInitialFit) {
+                hasInitialFit = true;
+                fitGraphToView(600);
+            }
+        });
+
+        simulation.on("end", () => {
+            fitGraphToView();
         });
 
         // Drag functions
@@ -268,15 +320,6 @@ export default function CourseGraph({ data }) {
             d.fy = null;
         }
 
-        // Add zoom
-        const zoom = d3.zoom()
-            .scaleExtent([0.3, 3])
-            .on("zoom", (event) => {
-                g.attr("transform", event.transform);
-            });
-
-        svg.call(zoom);
-
         // Reset function
         window.resetGraph = () => {
             // Reset fixed positions
@@ -285,13 +328,17 @@ export default function CourseGraph({ data }) {
                 node.fy = null;
             });
 
+            hasInitialFit = false;
             simulation.alpha(1).restart();
-            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+            fitGraphToView(600);
         };
 
         // Cleanup
         return () => {
             simulation.stop();
+            if (window.resetGraph) {
+                window.resetGraph = undefined;
+            }
         };
 
     }, [data]);

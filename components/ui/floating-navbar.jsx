@@ -27,7 +27,7 @@ export const FloatingNav = ({ className, onSearch }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
         className={cn(
-          "fixed left-1/2 top-8 z-[5000] flex max-w-fit -translate-x-1/2 items-center justify-center space-x-4 rounded-full border border-transparent bg-[#111827]/90 px-10 py-2 shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.25),0px_10px_20px_-15px_rgba(255,255,255,0.15)] backdrop-blur",
+          "fixed left-1/2 top-8 z-[5000] flex max-w-fit -translate-x-1/2 items-center justify-center space-x-4 rounded-full border border-transparent bg-[#111827]/90 pl-8 pr-2 py-2 shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.25),0px_10px_20px_-15px_rgba(255,255,255,0.15)] backdrop-blur",
           className
         )}
       >
