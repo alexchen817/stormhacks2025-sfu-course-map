@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram name="SFU Course Graph DFD (Improved)" id="eKAzNdAu7IfEroV1cgkg">
-        <mxGraphModel dx="1128" dy="561" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+        <mxGraphModel dx="529" dy="263" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -91,17 +91,27 @@
                 <mxCell id="khUBSF5W42iCneQy1zpq-23" value="return details&#xa;+ get detailed" style="endArrow=block;rounded=1;dashed=1;" parent="1" source="khUBSF5W42iCneQy1zpq-7" target="khUBSF5W42iCneQy1zpq-5" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="khUBSF5W42iCneQy1zpq-24" value="fetch outlines&#xa;+ JSON output" style="endArrow=block;rounded=1;" parent="1" source="khUBSF5W42iCneQy1zpq-7" target="khUBSF5W42iCneQy1zpq-2" edge="1">
+                <mxCell id="khUBSF5W42iCneQy1zpq-24" value="" style="endArrow=block;rounded=1;" parent="1" source="khUBSF5W42iCneQy1zpq-7" target="khUBSF5W42iCneQy1zpq-2" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="khUBSF5W42iCneQy1zpq-25" value="" style="endArrow=block;rounded=1;dashed=1;" parent="1" source="khUBSF5W42iCneQy1zpq-2" target="khUBSF5W42iCneQy1zpq-7" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="khUBSF5W42iCneQy1zpq-26" value="prompt&#xa;+ parsed array" style="endArrow=block;rounded=1;" parent="1" source="khUBSF5W42iCneQy1zpq-9" target="khUBSF5W42iCneQy1zpq-3" edge="1">
+                <mxCell id="3" value="&lt;span style=&quot;color: rgb(0, 0, 0);&quot;&gt;fetch outlines&lt;/span&gt;&lt;br style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgb(226, 226, 226) rgb(251, 251, 251); padding: 0px; margin: 0px;&quot;&gt;&lt;span style=&quot;color: rgb(0, 0, 0);&quot;&gt;+ JSON output&lt;/span&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="khUBSF5W42iCneQy1zpq-25">
+                    <mxGeometry x="-0.0688" y="-1" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="khUBSF5W42iCneQy1zpq-26" value="" style="endArrow=block;rounded=1;" parent="1" source="khUBSF5W42iCneQy1zpq-9" target="khUBSF5W42iCneQy1zpq-3" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="khUBSF5W42iCneQy1zpq-27" value="" style="endArrow=block;rounded=1;dashed=1;" parent="1" source="khUBSF5W42iCneQy1zpq-3" target="khUBSF5W42iCneQy1zpq-9" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="2" value="&lt;span style=&quot;color: rgb(0, 0, 0);&quot;&gt;prompt&lt;/span&gt;&lt;br style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgb(226, 226, 226) rgb(251, 251, 251); padding: 0px; margin: 0px;&quot;&gt;&lt;span style=&quot;color: rgb(0, 0, 0);&quot;&gt;+&amp;nbsp;parsed array&lt;/span&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="khUBSF5W42iCneQy1zpq-27">
+                    <mxGeometry x="0.1903" y="-2" relative="1" as="geometry">
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
                 </mxCell>
             </root>
         </mxGraphModel>
