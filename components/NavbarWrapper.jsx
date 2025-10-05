@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FloatingNavDemo } from "./Navbar";
 import CourseGraph from "./CourseGraph";
 
@@ -52,8 +52,77 @@ export function NavbarWrapper() {
   const [infoError, setInfoError] = useState(null);
   const [infoDetails, setInfoDetails] = useState(null);
   const [infoScrolled, setInfoScrolled] = useState(false);
+  const [quickSearchOpen, setQuickSearchOpen] = useState(false);
+  const [quickSearchQuery, setQuickSearchQuery] = useState("");
+  const [quickSearchResults, setQuickSearchResults] = useState([]);
+  const [quickSearchSelection, setQuickSearchSelection] = useState(0);
   const courseInfoCache = useRef(new Map());
   const currentRequestRef = useRef(null);
+  const quickSearchInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      const isFindShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f";
+      if (isFindShortcut && graphData) {
+        event.preventDefault();
+        setQuickSearchOpen(true);
+        return;
+      }
+
+      if (event.key === "Escape" && quickSearchOpen) {
+        setQuickSearchOpen(false);
+        setQuickSearchQuery("");
+        setQuickSearchResults([]);
+        setQuickSearchSelection(0);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [graphData, quickSearchOpen]);
+
+  useEffect(() => {
+    if (quickSearchOpen && quickSearchInputRef.current) {
+      quickSearchInputRef.current.focus();
+    }
+  }, [quickSearchOpen]);
+
+  useEffect(() => {
+    if (!quickSearchQuery || !graphData?.nodes) {
+      setQuickSearchResults([]);
+      setQuickSearchSelection(0);
+      return;
+    }
+
+    const normalize = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normalizedQuery = normalize(quickSearchQuery);
+
+    const results = graphData.nodes
+      .filter((node) => {
+        const normalizedId = normalize(node.id || "");
+        const normalizedTitle = (node.title || "").toLowerCase();
+        return normalizedId.includes(normalizedQuery) || normalizedTitle.includes(quickSearchQuery.toLowerCase());
+      })
+      .slice(0, 10);
+
+    setQuickSearchResults(results);
+    setQuickSearchSelection(0);
+  }, [quickSearchQuery, graphData]);
+
+  const handleQuickSearchSelect = (node) => {
+    if (!node) return;
+    handleNodeSelect(node);
+    setQuickSearchOpen(false);
+    setQuickSearchQuery("");
+    setQuickSearchResults([]);
+    setQuickSearchSelection(0);
+
+    if (node.id) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("zoomToNode", { detail: { nodeId: node.id } }));
+      }, 80);
+    }
+  };
 
   const resetInfoPanel = () => {
     setActiveNodeId(null);
@@ -257,6 +326,222 @@ export function NavbarWrapper() {
       }}
     >
       <FloatingNavDemo onSearch={handleCourseSearch} />
+
+      {quickSearchOpen && graphData && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backdropFilter: "blur(6px)",
+            zIndex: 6000,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            paddingTop: "14vh",
+          }}
+          onClick={() => {
+            setQuickSearchOpen(false);
+            setQuickSearchQuery("");
+            setQuickSearchResults([]);
+            setQuickSearchSelection(0);
+          }}
+        >
+          <div
+            style={{
+              width: "min(540px, 92vw)",
+              background: "rgba(17, 24, 39, 0.92)",
+              borderRadius: "1.25rem",
+              boxShadow: "0 24px 40px -24px rgba(2, 6, 23, 0.85)",
+              backdropFilter: "blur(16px)",
+              border: "none",
+              overflow: "hidden",
+              position: "relative",
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span
+              style={{
+                position: "absolute",
+                left: "50%",
+                transform: "translateX(-50%)",
+                bottom: "-1px",
+                width: "55%",
+                height: "2px",
+                background: "linear-gradient(90deg, rgba(239, 68, 68, 0), rgba(239, 68, 68, 0.9), rgba(239, 68, 68, 0))",
+                pointerEvents: "none",
+              }}
+            />
+
+            <div style={{ padding: "1.5rem 1.75rem" }}>
+              <div style={{ marginBottom: "1rem" }}>
+                <p
+                  style={{
+                    fontSize: "0.8rem",
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "#ef4444",
+                    marginBottom: "0.55rem",
+                  }}
+                >
+                  Quick Search
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <input
+                    ref={quickSearchInputRef}
+                    type="text"
+                    placeholder="CMPT 225, Data Structures..."
+                    value={quickSearchQuery}
+                    onChange={(event) => setQuickSearchQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        setQuickSearchSelection((current) =>
+                          current < quickSearchResults.length - 1 ? current + 1 : current,
+                        );
+                      } else if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        setQuickSearchSelection((current) => (current > 0 ? current - 1 : 0));
+                      } else if (event.key === "Enter" && quickSearchResults.length > 0) {
+                        handleQuickSearchSelect(quickSearchResults[quickSearchSelection]);
+                      }
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "0.75rem 1rem",
+                      background: "rgba(255, 255, 255, 0.06)",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      borderRadius: "0.5rem",
+                      color: "#F8FAFC",
+                      fontSize: "0.95rem",
+                      outline: "none",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickSearchOpen(false);
+                      setQuickSearchQuery("");
+                      setQuickSearchResults([]);
+                      setQuickSearchSelection(0);
+                    }}
+                    style={{
+                      padding: "0.25rem 0.7rem",
+                      background: "rgba(248, 113, 113, 0.14)",
+                      border: "none",
+                      borderRadius: "999px",
+                      color: "rgba(248, 250, 252, 0.9)",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <p
+                style={{
+                  fontSize: "0.78rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "rgba(226, 232, 240, 0.65)",
+                  marginBottom: "1rem",
+                }}
+              >
+                Use <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>↑</kbd>{" "}
+                <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>↓</kbd>{" "}
+                to navigate, <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>Enter</kbd> to select
+              </p>
+            </div>
+
+            {quickSearchResults.length > 0 && (
+              <div
+                style={{
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                  borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                {quickSearchResults.map((node, index) => {
+                  const isSelected = index === quickSearchSelection;
+                  return (
+                    <div
+                      key={node.id}
+                      onClick={() => handleQuickSearchSelect(node)}
+                      style={{
+                        padding: "1rem 1.75rem",
+                        borderBottom:
+                          index < quickSearchResults.length - 1
+                            ? "1px solid rgba(255, 255, 255, 0.05)"
+                            : "none",
+                        cursor: "pointer",
+                        background: isSelected ? "rgba(59, 130, 246, 0.18)" : "transparent",
+                        transition: "background 0.2s ease",
+                        position: "relative",
+                      }}
+                      onMouseEnter={() => setQuickSearchSelection(index)}
+                    >
+                      {isSelected && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: "0.75rem",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "#60a5fa",
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          ▶
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#60a5fa",
+                          fontSize: "0.95rem",
+                          marginBottom: node.title ? "0.25rem" : 0,
+                          letterSpacing: "0.02em",
+                        }}
+                      >
+                        {node.id}
+                      </div>
+                      {node.title && (
+                        <div
+                          style={{
+                            fontSize: "0.85rem",
+                            color: "rgba(226, 232, 240, 0.85)",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {node.title.length > 60 ? `${node.title.slice(0, 60)}...` : node.title}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {quickSearchQuery && quickSearchResults.length === 0 && (
+              <div
+                style={{
+                  padding: "2rem 1.75rem",
+                  textAlign: "center",
+                  color: "rgba(226, 232, 240, 0.65)",
+                  fontSize: "0.9rem",
+                  borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                }}
+              >
+                No courses found matching "{quickSearchQuery}"
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <div
         id="course-results"
         style={{
