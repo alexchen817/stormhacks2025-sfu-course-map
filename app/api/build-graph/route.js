@@ -20,7 +20,7 @@ export async function POST(req) {
 
     // Recursive function to build the tree
     async function fetchPrerequisites(courseStr, depth = 0) {
-      if (depth > 5) return; // Limit depth to prevent infinite loops
+      if (depth > 5) return;
       if (visited.has(courseStr)) return;
       
       visited.add(courseStr);
@@ -31,18 +31,10 @@ export async function POST(req) {
       // Skip CMPT 300 specifically
       if (parsed.dept === "CMPT" && parsed.number === "300") return;
 
-      // Fetch course data - try with suffix, then without
-      const courseQuery = `${parsed.dept}${parsed.number}${parsed.suffix}`;
-      let courseResponse = await fetch(
+      // Fetch course data
+      const courseResponse = await fetch(
         `${req.headers.get('origin')}/api/sfu-courses?dept=${parsed.dept}&number=${parsed.number}${parsed.suffix}`
       );
-
-      // If not found and has suffix, try without suffix
-      if (!courseResponse.ok && parsed.suffix) {
-        courseResponse = await fetch(
-          `${req.headers.get('origin')}/api/sfu-courses?dept=${parsed.dept}&number=${parsed.number}`
-        );
-      }
 
       if (!courseResponse.ok) return;
 
@@ -50,6 +42,7 @@ export async function POST(req) {
       if (!courseData || courseData.length === 0) return;
 
       const course = courseData[0];
+      // Include suffix in the course ID if present
       const courseId = `${course.dept} ${course.number}`;
 
       // Add node
