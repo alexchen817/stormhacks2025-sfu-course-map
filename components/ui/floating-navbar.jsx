@@ -1,10 +1,25 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 
-export const FloatingNav = ({ className }) => {
+export const FloatingNav = ({ className, onSearch }) => {
+  const [searchValue, setSearchValue] = useState("");
+
+  const handleSearch = (e) => {
+    if (e.key === "Enter" && searchValue.trim()) {
+      // Call the onSearch function passed from parent
+      if (onSearch) {
+        onSearch(searchValue);
+      }
+    }
+  };
+
+  const handleChange = (e) => {
+    setSearchValue(e.target.value);
+  };
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -25,11 +40,14 @@ export const FloatingNav = ({ className }) => {
           priority
         />
         <span className="text-sm text-[#F9FAFB] dark:text-neutral-50">Course Map</span>
-                <label className="relative text-[#F9FAFB]">
+        <label className="relative text-[#F9FAFB]">
           <span className="sr-only">Search courses</span>
           <input
             type="search"
             placeholder="CMPT225, CMPT271..."
+            value={searchValue}
+            onChange={handleChange}
+            onKeyDown={handleSearch}
             className="h-9 w-48 rounded-full border border-white/15 bg-white/10 px-4 text-sm text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/30"
           />
         </label>
