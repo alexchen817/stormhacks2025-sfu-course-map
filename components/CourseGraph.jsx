@@ -29,7 +29,7 @@ export default function CourseGraph({ data }) {
         // Build adjacency list (reversed - from target to sources/prerequisites)
         const childrenMap = new Map();
         nodes.forEach(n => childrenMap.set(n.id, []));
-        
+
         validLinks.forEach(link => {
             const source = typeof link.source === 'object' ? link.source.id : link.source;
             const target = typeof link.target === 'object' ? link.target.id : link.target;
@@ -43,20 +43,24 @@ export default function CourseGraph({ data }) {
             const source = typeof link.source === 'object' ? link.source.id : link.source;
             hasParent.add(source);
         });
-        
+
         const roots = nodes.filter(n => !hasParent.has(n.id));
         const root = roots.length > 0 ? roots[0] : nodes[0];
 
-        // Build tree structure
-        function buildTree(nodeId, visited = new Set()) {
-            if (visited.has(nodeId)) return null;
-            visited.add(nodeId);
+        // Build tree structure - FIXED: Allow nodes to appear multiple times
+        function buildTree(nodeId, ancestorPath = new Set()) {
+            // Only prevent infinite loops by checking the current path
+            if (ancestorPath.has(nodeId)) return null;
 
             const node = nodes.find(n => n.id === nodeId);
             if (!node) return null;
 
+            // Add to current path to detect cycles
+            const newPath = new Set(ancestorPath);
+            newPath.add(nodeId);
+
             const children = (childrenMap.get(nodeId) || [])
-                .map(childId => buildTree(childId, visited))
+                .map(childId => buildTree(childId, newPath))
                 .filter(child => child !== null);
 
             return {
@@ -126,21 +130,21 @@ export default function CourseGraph({ data }) {
 
         // Add drag behavior
         const drag = d3.drag()
-            .on("start", function(event, d) {
+            .on("start", function (event, d) {
                 d3.select(this).raise().attr("stroke", "black");
             })
-            .on("drag", function(event, d) {
+            .on("drag", function (event, d) {
                 d.x = event.x;
                 d.y = event.y;
                 d3.select(this).attr("transform", `translate(${d.x},${d.y})`);
-                
+
                 // Update links
                 g.selectAll(".link")
                     .attr("d", d3.linkVertical()
                         .x(d => d.x)
                         .y(d => d.y));
             })
-            .on("end", function(event, d) {
+            .on("end", function (event, d) {
                 d3.select(this).attr("stroke", null);
             });
 
@@ -149,7 +153,7 @@ export default function CourseGraph({ data }) {
         // Reset function
         window.resetGraph = () => {
             treeLayout(rootNode);
-            
+
             node.transition()
                 .duration(750)
                 .attr("transform", d => `translate(${d.x},${d.y})`);
