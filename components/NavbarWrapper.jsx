@@ -54,19 +54,17 @@ export function NavbarWrapper() {
   const [quickSearchQuery, setQuickSearchQuery] = useState("");
   const [quickSearchResults, setQuickSearchResults] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [hasSearched, setHasSearched] = useState(false);
   const courseInfoCache = useRef(new Map());
   const currentRequestRef = useRef(null);
   const quickSearchInputRef = useRef(null);
 
-  // Keyboard shortcut listener
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Ctrl+F or Cmd+F
       if ((e.ctrlKey || e.metaKey) && e.key === 'f' && graphData) {
         e.preventDefault();
         setQuickSearchOpen(true);
       }
-      // Escape to close
       if (e.key === 'Escape' && quickSearchOpen) {
         setQuickSearchOpen(false);
         setQuickSearchQuery("");
@@ -78,38 +76,34 @@ export function NavbarWrapper() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [graphData, quickSearchOpen]);
 
-  // Focus input when search opens
   useEffect(() => {
     if (quickSearchOpen && quickSearchInputRef.current) {
       quickSearchInputRef.current.focus();
     }
   }, [quickSearchOpen]);
 
-// Filter courses as user types
-useEffect(() => {
-  if (!quickSearchQuery || !graphData?.nodes) {
-    setQuickSearchResults([]);
-    setSelectedIndex(0);
-    return;
-  }
+  useEffect(() => {
+    if (!quickSearchQuery || !graphData?.nodes) {
+      setQuickSearchResults([]);
+      setSelectedIndex(0);
+      return;
+    }
 
-  // Remove all non-alphanumeric characters (spaces, dashes, symbols, etc.)
-  const normalizeString = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
-  
-  const normalizedQuery = normalizeString(quickSearchQuery);
-  
-  const results = graphData.nodes.filter(node => {
-    const normalizedNodeId = normalizeString(node.id);
-    const nodeTitle = node.title ? node.title.toLowerCase() : '';
+    const normalizeString = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
     
-    // Match against normalized ID or original title
-    return normalizedNodeId.includes(normalizedQuery) || 
-           nodeTitle.includes(quickSearchQuery.toLowerCase());
-  }).slice(0, 10);
+    const normalizedQuery = normalizeString(quickSearchQuery);
+    
+    const results = graphData.nodes.filter(node => {
+      const normalizedNodeId = normalizeString(node.id);
+      const nodeTitle = node.title ? node.title.toLowerCase() : '';
+      
+      return normalizedNodeId.includes(normalizedQuery) || 
+             nodeTitle.includes(quickSearchQuery.toLowerCase());
+    }).slice(0, 10);
 
-  setQuickSearchResults(results);
-  setSelectedIndex(0);
-}, [quickSearchQuery, graphData]);
+    setQuickSearchResults(results);
+    setSelectedIndex(0);
+  }, [quickSearchQuery, graphData]);
 
   const handleQuickSearchSelect = (node) => {
     handleNodeSelect(node);
@@ -118,9 +112,7 @@ useEffect(() => {
     setQuickSearchResults([]);
     setSelectedIndex(0);
     
-    // Trigger zoom to the selected node
     if (node?.id) {
-      // Small delay to ensure the search modal closes first
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('zoomToNode', { detail: { nodeId: node.id } }));
       }, 100);
@@ -137,6 +129,7 @@ useEffect(() => {
   };
 
   const handleCourseSearch = async (searchQuery) => {
+    setHasSearched(true);
     setGraphLoading(true);
     setCourseData(null);
     setGraphData(null);
@@ -144,7 +137,6 @@ useEffect(() => {
     courseInfoCache.current = new Map();
     
     const firstCourse = searchQuery.split(',')[0].trim();
-    // Updated regex to capture letter suffixes like W, D, E
     const match = firstCourse.match(/([A-Z]+)\s*(\d+)([A-Z]*)/i);
     
     if (match) {
@@ -154,7 +146,6 @@ useEffect(() => {
       const courseStr = `${dept} ${number}${suffix}`;
       
       try {
-        // Fetch course data
         const response = await fetch(
           `/api/sfu-courses?dept=${encodeURIComponent(dept)}&number=${encodeURIComponent(number)}${suffix}`
         );
@@ -171,25 +162,22 @@ useEffect(() => {
         
         setCourseData(data);
         
-        // Build prerequisite graph
         const graphResponse = await fetch('/api/build-graph', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ startCourse: courseStr }),
         });
-  
+
         if (graphResponse.ok) {
           const graph = await graphResponse.json();
           console.log("Graph data received:", graph);
           
-          // Check if graph has any nodes
           if (!graph.nodes || graph.nodes.length === 0) {
             setCourseData({ 
               ...data, 
               warning: `${courseStr} could not be found or has data issues.` 
             });
           } else if (graph.nodes.length === 1 && graph.links.length === 0) {
-            // Single node with no prerequisites
             setGraphData(graph);
           } else {
             setGraphData(graph);
@@ -205,7 +193,6 @@ useEffect(() => {
         
         setGraphLoading(false);
         
-        // Scroll to results
         setTimeout(() => {
           document.getElementById('course-results')?.scrollIntoView({ 
             behavior: 'smooth',
@@ -333,7 +320,53 @@ useEffect(() => {
     >
       <FloatingNavDemo onSearch={handleCourseSearch} />
       
-{/* Quick Search Overlay */}
+      {!hasSearched && !graphLoading && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            textAlign: "center",
+            zIndex: 1000,
+            maxWidth: "600px",
+            padding: "0 2rem",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: "2.5rem",
+              fontWeight: 700,
+              color: "#F8FAFC",
+              marginBottom: "1rem",
+              letterSpacing: "0.02em",
+              lineHeight: 1.2,
+            }}
+          >
+            Welcome to SFU Course Map
+          </h1>
+          <p
+            style={{
+              fontSize: "1.1rem",
+              color: "rgba(226, 232, 240, 0.8)",
+              lineHeight: 1.6,
+              marginBottom: "2.5rem",
+            }}
+          >
+            Type any course code in the search bar above to explore prerequisites and dependencies
+          </p>
+          <div
+            style={{
+              fontSize: "0.9rem",
+              color: "rgba(148, 163, 184, 0.7)",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Try: CMPT 225, MACM 101, MATH 152
+          </div>
+        </div>
+      )}
+
 {quickSearchOpen && graphData && (
   <div
     style={{
@@ -366,7 +399,6 @@ useEffect(() => {
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Bottom accent line */}
       <span
         style={{
           position: "absolute",
@@ -381,7 +413,6 @@ useEffect(() => {
       />
       
       <div style={{ padding: "1.5rem 1.75rem" }}>
-        {/* Header */}
         <div style={{ marginBottom: "1rem" }}>
           <p style={{ 
             fontSize: "0.8rem", 
@@ -446,7 +477,6 @@ useEffect(() => {
           </div>
         </div>
         
-        {/* Instructions */}
         <p style={{ 
           fontSize: "0.78rem", 
           letterSpacing: "0.08em",
@@ -454,11 +484,10 @@ useEffect(() => {
           color: "rgba(226, 232, 240, 0.65)", 
           marginBottom: "1rem" 
         }}>
-          Use <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>↑</kbd> <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>↓</kbd> to navigate, <kbd style={{ padding: "0.125rem 0.375rem", background: "rgba(255, 255, 255, 0.1)", borderRadius: "0.25rem", fontSize: "0.7rem" }}>Enter</kbd> to select
+          Use arrow keys to navigate, Enter to select
         </p>
       </div>
       
-      {/* Results */}
       {quickSearchResults.length > 0 && (
         <div style={{ 
           maxHeight: "400px", 
@@ -520,7 +549,6 @@ useEffect(() => {
         </div>
       )}
       
-      {/* No results message */}
       {quickSearchQuery && quickSearchResults.length === 0 && (
         <div style={{ 
           padding: "2rem 1.75rem", 
@@ -562,20 +590,27 @@ useEffect(() => {
             Building prerequisite tree...
           </div>
         )}
-        {!graphLoading && courseData?.error && (
+        {!graphLoading && (courseData?.error || courseData?.warning) && !graphData && (
           <div
             style={{
               position: "absolute",
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              color: "#F87171",
+              color: courseData?.error ? "#F87171" : "#FBBF24",
               fontSize: "1rem",
               letterSpacing: "0.05em",
               textAlign: "center",
+              maxWidth: "600px",
+              padding: "2rem",
             }}
           >
-            {courseData.error}
+            {courseData.error || courseData.warning}
+            {courseData?.warning && (
+              <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "#94A3B8" }}>
+                This course may not have any prerequisites, or the course code may not exist in the SFU system.
+              </div>
+            )}
           </div>
         )}
         <CourseGraph
