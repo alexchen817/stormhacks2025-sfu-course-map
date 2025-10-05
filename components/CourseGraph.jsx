@@ -7,10 +7,17 @@ export default function CourseGraph({ data }) {
     const svgRef = useRef();
 
     useEffect(() => {
-        if (!data || !data.nodes || data.nodes.length === 0) return;
+        if (!svgRef.current) return;
 
-        const width = 1200;
-        const height = 800;
+        if (!data || !data.nodes || data.nodes.length === 0) {
+            d3.select(svgRef.current).selectAll("*").remove();
+            return;
+        }
+
+        const container = svgRef.current.parentElement;
+        const bounds = container?.getBoundingClientRect();
+        const width = bounds?.width || window.innerWidth || 1200;
+        const height = bounds?.height || window.innerHeight || 800;
 
         d3.select(svgRef.current).selectAll("*").remove();
 
@@ -104,8 +111,10 @@ export default function CourseGraph({ data }) {
             .attr("width", width)
             .attr("height", height)
             .attr("viewBox", [0, 0, width, height])
-            .style("max-width", "100%")
-            .style("height", "auto");
+            .attr("preserveAspectRatio", "xMidYMid meet")
+            .style("width", "100%")
+            .style("height", "100%")
+            .style("display", "block");
 
         const g = svg.append("g");
 
@@ -221,11 +230,16 @@ export default function CourseGraph({ data }) {
         // Add course code text
         node.append("text")
             .text(d => d.id)
-            .attr("dy", "-2.2em")
+            .attr("dy", "0.35em")
             .attr("text-anchor", "middle")
-            .attr("font-size", d => d.id === rootNode.id ? "14px" : "12px")
-            .attr("font-weight", "bold")
-            .attr("fill", "#333");
+            .attr("font-size", d => d.id === rootNode.id ? "16px" : "14px")
+            .attr("font-weight", "700")
+            .attr("letter-spacing", "0.04em")
+            .attr("fill", "#F9FAFB")
+            .attr("paint-order", "stroke")
+            .attr("stroke", "rgba(15, 23, 42, 0.6)")
+            .attr("stroke-width", 3)
+            .attr("pointer-events", "none");
 
         // Update positions on simulation tick
         simulation.on("tick", () => {
@@ -282,5 +296,5 @@ export default function CourseGraph({ data }) {
 
     }, [data]);
 
-    return <svg ref={svgRef}></svg>;
+    return <svg ref={svgRef} style={{ width: "100%", height: "100%" }} />;
 }
