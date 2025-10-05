@@ -3,13 +3,15 @@ import { useRef, useState } from "react";
 import { FloatingNavDemo } from "./Navbar";
 import CourseGraph from "./CourseGraph";
 
+const courseCodePattern = /([A-Z]+)\s*(\d+[A-Z]*)/i;
+
 const parseCourseCode = (code) => {
   if (!code) return null;
-  const match = code.match(/([A-Z]+)\s*(\d+)/i);
+  const match = code.match(courseCodePattern);
   if (!match) return null;
   return {
     dept: match[1].toUpperCase(),
-    number: match[2],
+    number: match[2].toUpperCase(),
   };
 };
 
@@ -73,13 +75,13 @@ export function NavbarWrapper() {
     const firstCourse = searchQuery.split(',')[0].trim();
     
     // Match patterns like "CMPT225", "CMPT 225", etc.
-    const match = firstCourse.match(/([A-Z]+)\s*(\d+)/i);
-    
+    const match = firstCourse.match(courseCodePattern);
+
     if (match) {
       const dept = match[1].toUpperCase();
-      const number = match[2];
+      const number = match[2].toUpperCase();
       const courseStr = `${dept} ${number}`;
-      
+
       try {
         // Fetch course data
         const response = await fetch(
@@ -87,47 +89,63 @@ export function NavbarWrapper() {
         );
         
         if (!response.ok) {
-          throw new Error("Failed to fetch courses");
+          throw new Error(`Failed to fetch courses: ${response.status}`);
         }
-        
+
         const data = await response.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+          setCourseData({ error: "No course outlines were found for that code." });
+          return;
+        }
+
         setCourseData(data);
-        
-        // Build prerequisite graph
+
         const graphResponse = await fetch('/api/build-graph', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ startCourse: courseStr }),
         });
 
-        if (graphResponse.ok) {
-          const graph = await graphResponse.json();
-          console.log("Graph data received:", graph);
-          setGraphData(graph);
-        } else {
-          const errorData = await graphResponse.json();
-          console.error("Failed to build graph:", graphResponse.status, errorData);
+        if (!graphResponse.ok) {
+          let graphError = "Failed to build prerequisite graph.";
+          try {
+            const errorPayload = await graphResponse.json();
+            if (errorPayload?.error) {
+              graphError = errorPayload.error;
+            }
+          } catch (parseError) {
+            console.error("Unable to read graph error payload:", parseError);
+          }
+
+          console.error("Failed to build graph:", graphResponse.status, graphError);
+          setCourseData({ error: graphError });
+          setGraphData(null);
+          return;
         }
-        
-        setGraphLoading(false);
-        
-        // Scroll to results
+
+        const graph = await graphResponse.json();
+        console.log("Graph data received:", graph);
+        setGraphData(graph);
+
         setTimeout(() => {
-          document.getElementById('course-results')?.scrollIntoView({ 
+          document.getElementById('course-results')?.scrollIntoView({
             behavior: 'smooth',
             block: 'start'
           });
         }, 100);
       } catch (error) {
         console.error("Error fetching courses:", error);
-        setCourseData({ error: "Failed to fetch course data" });
+        setCourseData({ error: "We couldn't find that course. Try another code." });
+        setGraphData(null);
+      } finally {
         setGraphLoading(false);
       }
     } else {
       setCourseData({ error: "Invalid course format. Use format like: CMPT225" });
       setGraphLoading(false);
     }
-    
+
   };
 
   const handleNodeSelect = async (node) => {

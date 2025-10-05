@@ -7,11 +7,13 @@ export async function POST(req) {
       const visited = new Set();
       const nodeMap = new Map();
   
+      const courseCodePattern = /([A-Z]+)\s*(\d+[A-Z]*)/i;
+
       // Helper to parse course string "CMPT 225" -> {dept: "CMPT", number: "225"}
       function parseCourse(courseStr) {
-        const match = courseStr.trim().match(/([A-Z]+)\s*(\d+)/i);
+        const match = courseStr.trim().match(courseCodePattern);
         if (!match) return null;
-        return { dept: match[1].toUpperCase(), number: match[2] };
+        return { dept: match[1].toUpperCase(), number: match[2].toUpperCase() };
       }
   
       // Recursive function to build the tree
