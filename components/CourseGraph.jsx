@@ -19,6 +19,12 @@ export default function CourseGraph({ data }) {
         const width = bounds?.width || window.innerWidth || 1200;
         const height = bounds?.height || window.innerHeight || 800;
 
+        const topMargin = 120;
+        const bottomPadding = 48;
+        const sidePadding = 80;
+        const availableWidth = Math.max(width - sidePadding * 2, 1);
+        const availableHeight = Math.max(height - topMargin - bottomPadding, 1);
+
         d3.select(svgRef.current).selectAll("*").remove();
 
         // Use the data directly - no tree conversion needed!
@@ -87,14 +93,25 @@ export default function CourseGraph({ data }) {
 
         // Calculate initial positions
         const maxDepth = Math.max(...depths.values());
-        const verticalSpacing = (height - 150) / (maxDepth || 1);
+        const depthLevels = (maxDepth || 0) + 1;
+        const verticalSpacing = depthLevels > 1 ? availableHeight / (depthLevels - 1) : 0;
 
         nodesByDepth.forEach((nodesAtDepth, depth) => {
-            const horizontalSpacing = width / (nodesAtDepth.length + 1);
-            nodesAtDepth.forEach((node, i) => {
-                node.x = horizontalSpacing * (i + 1);
-                node.y = 75 + depth * verticalSpacing;
+            const horizontalSpacing = nodesAtDepth.length > 1 ? availableWidth / (nodesAtDepth.length - 1) : 0;
+            nodesAtDepth.forEach((node, index) => {
+                const targetX = nodesAtDepth.length > 1
+                    ? sidePadding + index * horizontalSpacing
+                    : sidePadding + availableWidth / 2;
+                const depthOffset = depthLevels > 1 ? depth * verticalSpacing : availableHeight / 2;
+
+                node.x = targetX;
+                node.y = topMargin + depthOffset;
             });
+        });
+
+        const targetPositions = new Map();
+        nodes.forEach(node => {
+            targetPositions.set(node.id, { x: node.x, y: node.y });
         });
 
         // Identify OR relationships (multiple nodes pointing to same target)
@@ -125,10 +142,6 @@ export default function CourseGraph({ data }) {
             });
 
         svg.call(zoom);
-
-        const topMargin = 120;
-        const sidePadding = 56;
-        const bottomPadding = 48;
 
         const fitGraphToView = (duration = 750) => {
             const graphBounds = g.node()?.getBBox();
@@ -165,23 +178,18 @@ export default function CourseGraph({ data }) {
         const simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(validLinks)
                 .id(d => d.id)
-                .distance(100)
-                .strength(0.5))
-            .force("charge", d3.forceManyBody().strength(-400))
-            .force("collision", d3.forceCollide().radius(40))
+                .distance(140)
+                .strength(0.4))
+            .force("charge", d3.forceManyBody().strength(-600))
+            .force("collision", d3.forceCollide().radius(45))
             // Strong vertical force to maintain depth levels
             .force("y", d3.forceY()
-                .y(d => 75 + d.depth * verticalSpacing)
-                .strength(1.2))
+                .y(d => targetPositions.get(d.id)?.y ?? (topMargin + availableHeight / 2))
+                .strength(1.1))
             // Moderate horizontal force to prevent overlap
             .force("x", d3.forceX()
-                .x(d => {
-                    const nodesAtDepth = nodesByDepth.get(d.depth);
-                    const index = nodesAtDepth.indexOf(d);
-                    const horizontalSpacing = width / (nodesAtDepth.length + 1);
-                    return horizontalSpacing * (index + 1);
-                })
-                .strength(0.3));
+                .x(d => targetPositions.get(d.id)?.x ?? (width / 2))
+                .strength(0.5));
 
         // Add arrow markers for directed edges
         svg.append("defs").selectAll("marker")
@@ -207,7 +215,7 @@ export default function CourseGraph({ data }) {
             .attr("fill", "none")
             .attr("stroke", "#999")
             .attr("stroke-width", 2)
-            .attr("stroke-opacity", 0.6)
+            .attr("stroke-opacity", 0.4)
             .attr("marker-end", "url(#arrow)");
 
 
@@ -220,42 +228,54 @@ export default function CourseGraph({ data }) {
             .attr("class", "node")
             .on("mouseenter", function (event, d) {
                 // Find all connected nodes
-                const connectedNodeIds = new Set();
-                connectedNodeIds.add(d.id);
+                const connectedNodeIds = new Set([d.id]);
 
-                validLinks.forEach(link => {
-                    const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-                    const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                node.style("opacity", n => (n.id === d.id ? 1 : 0.35));
 
-                    if (sourceId === d.id) connectedNodeIds.add(targetId);
-                    if (targetId === d.id) connectedNodeIds.add(sourceId);
-                });
-
-                // Dim all nodes and links
-                node.style("opacity", n => connectedNodeIds.has(n.id) ? 1 : 0.2);
                 link.style("opacity", l => {
-                    const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-                    const targetId = typeof l.target === 'object' ? l.target.id : l.target;
-                    return (sourceId === d.id || targetId === d.id) ? 1 : 0.1;
+                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
+
+                    if (sourceId === d.id) {
+                        connectedNodeIds.add(targetId);
+                        return 1;
+                    }
+
+                    if (targetId === d.id) {
+                        connectedNodeIds.add(sourceId);
+                        return 1;
+                    }
+
+                    return 0.1;
                 });
 
-                // Highlight connected links
+                node.style("opacity", n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+
                 link.attr("stroke", l => {
-                    const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-                    const targetId = typeof l.target === 'object' ? l.target.id : l.target;
-                    return (sourceId === d.id || targetId === d.id) ? "#e74c3c" : "#999";
-                })
-                    .attr("stroke-width", l => {
-                        const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-                        const targetId = typeof l.target === 'object' ? l.target.id : l.target;
-                        return (sourceId === d.id || targetId === d.id) ? 3 : 2;
-                    });
+                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
+
+                    if (sourceId === d.id) {
+                        return "#38bdf8"; // outgoing
+                    }
+
+                    if (targetId === d.id) {
+                        return "#facc15"; // incoming
+                    }
+
+                    return "#64748b";
+                }).attr("stroke-width", l => {
+                    const sourceId = typeof l.source === "object" ? l.source.id : l.source;
+                    const targetId = typeof l.target === "object" ? l.target.id : l.target;
+
+                    return (sourceId === d.id || targetId === d.id) ? 3 : 2;
+                });
             })
             .on("mouseleave", function () {
                 // Reset all styles
                 node.style("opacity", 1);
-                link.style("opacity", 0.6)
-                    .attr("stroke", "#999")
+                link.style("opacity", 0.4)
+                    .attr("stroke", "#94a3b8")
                     .attr("stroke-width", 2);
             })
             .call(d3.drag()
@@ -271,18 +291,30 @@ export default function CourseGraph({ data }) {
             .attr("stroke-width", 3);
 
         // Add course code text
-        node.append("text")
+        const label = node.append("text")
             .text(d => d.id)
             .attr("dy", "0.35em")
             .attr("text-anchor", "middle")
-            .attr("font-size", d => d.id === rootNode.id ? "16px" : "14px")
+            .attr("font-size", d => (d.id === rootNode.id ? 16 : 14))
             .attr("font-weight", "700")
-            .attr("letter-spacing", "0.04em")
+            .attr("letter-spacing", "0.02em")
             .attr("fill", "#F9FAFB")
             .attr("paint-order", "stroke")
-            .attr("stroke", "rgba(15, 23, 42, 0.6)")
-            .attr("stroke-width", 3)
+            .attr("stroke", "rgba(15, 23, 42, 0.55)")
+            .attr("stroke-width", 2.5)
             .attr("pointer-events", "none");
+
+        label.each(function (d) {
+            const circleRadius = d.id === rootNode.id ? 35 : 25;
+            const maxTextWidth = circleRadius * 1.65;
+            const textLength = this.getComputedTextLength();
+
+            if (textLength > maxTextWidth) {
+                const baseSize = d.id === rootNode.id ? 16 : 14;
+                const adjustedSize = Math.max(9, Math.floor((maxTextWidth / textLength) * baseSize));
+                d3.select(this).attr("font-size", adjustedSize);
+            }
+        });
 
         // Update positions on simulation tick
         simulation.on("tick", () => {
