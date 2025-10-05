@@ -29,14 +29,4 @@ export default function Home() {
     }
     setLoading(false);
   };
-
-  return (
-    <div style={{ padding: "2rem" }}>
-      <h1>Gemini API Test</h1>
-      <button onClick={handleClick} disabled={loading}>
-        {loading ? "Generating..." : "Generate AI Text"}
-      </button>
-      <p>{result}</p>
-    </div>
-  );
 }
