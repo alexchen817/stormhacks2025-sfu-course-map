@@ -41,11 +41,9 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
 
         d3.select(svgRef.current).selectAll("*").remove();
 
-        // Use the data directly - no tree conversion needed!
         const nodes = data.nodes.map(d => ({ ...d }));
         const links = data.links.map(d => ({ ...d }));
 
-        // Filter out invalid links
         const nodeIds = new Set(nodes.map(n => n.id));
         const validLinks = links.filter(l => {
             const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
@@ -53,7 +51,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             return nodeIds.has(sourceId) && nodeIds.has(targetId);
         });
 
-        // Find the root node (the course being searched - has no incoming edges)
         const hasIncoming = new Set();
         validLinks.forEach(link => {
             const source = typeof link.source === 'object' ? link.source.id : link.source;
@@ -61,7 +58,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
         });
         const rootNode = nodes.find(n => !hasIncoming.has(n.id)) || nodes[0];
 
-        // Calculate depth for each node (BFS from root)
         const depths = new Map();
         const queue = [{ id: rootNode.id, depth: 0 }];
         const visited = new Set();
@@ -73,7 +69,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             if (visited.has(id)) continue;
             visited.add(id);
 
-            // Find all prerequisites (nodes this course points to)
             validLinks.forEach(link => {
                 const target = typeof link.target === 'object' ? link.target.id : link.target;
                 const source = typeof link.source === 'object' ? link.source.id : link.source;
@@ -91,12 +86,10 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             });
         }
 
-        // Assign depth to all nodes
         nodes.forEach(node => {
             node.depth = depths.get(node.id) || 0;
         });
 
-        // Group nodes by depth for horizontal spacing
         const nodesByDepth = new Map();
         nodes.forEach(node => {
             if (!nodesByDepth.has(node.depth)) {
@@ -105,7 +98,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             nodesByDepth.get(node.depth).push(node);
         });
 
-        // Calculate initial positions
         const maxDepth = Math.max(...depths.values());
         const depthLevels = (maxDepth || 0) + 1;
         const verticalSpacing = depthLevels > 1 ? availableHeight / (depthLevels - 1) : 0;
@@ -126,15 +118,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
         const targetPositions = new Map();
         nodes.forEach(node => {
             targetPositions.set(node.id, { x: node.x, y: node.y });
-        });
-
-        // Identify OR relationships (multiple nodes pointing to same target)
-        const linksByTarget = new Map();
-        validLinks.forEach(link => {
-            const source = typeof link.source === 'object' ? link.source.id : link.source;
-            const target = typeof link.target === 'object' ? link.target.id : link.target;
-            if (!linksByTarget.has(target)) linksByTarget.set(target, []);
-            linksByTarget.get(target).push(source);
         });
 
         const svg = d3
@@ -188,7 +171,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
 
         let hasInitialFit = false;
 
-        // Create force simulation with strong positioning forces
         const simulation = d3.forceSimulation(nodes)
             .force("link", d3.forceLink(validLinks)
                 .id(d => d.id)
@@ -196,16 +178,13 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
                 .strength(0.4))
             .force("charge", d3.forceManyBody().strength(-600))
             .force("collision", d3.forceCollide().radius(45))
-            // Strong vertical force to maintain depth levels
             .force("y", d3.forceY()
                 .y(d => targetPositions.get(d.id)?.y ?? (topMargin + availableHeight / 2))
                 .strength(1.1))
-            // Moderate horizontal force to prevent overlap
             .force("x", d3.forceX()
                 .x(d => targetPositions.get(d.id)?.x ?? (width / 2))
                 .strength(0.5));
 
-        // Add arrow markers for directed edges
         svg.append("defs").selectAll("marker")
             .data(["arrow"])
             .join("marker")
@@ -220,7 +199,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             .attr("d", "M0,-5L10,0L0,5")
             .attr("fill", "#999");
 
-        // Draw links
         const link = g.append("g")
             .selectAll("path")
             .data(validLinks)
@@ -231,8 +209,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             .attr("stroke-width", 2)
             .attr("stroke-opacity", 0.4)
             .attr("marker-end", "url(#arrow)");
-
-
 
         const node = g.append("g")
             .selectAll("g")
@@ -261,14 +237,12 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
                 .on("drag", dragged)
                 .on("end", dragended));
 
-        // Add circles
         node.append("circle")
             .attr("r", d => d.id === rootNode.id ? 35 : 25)
             .attr("fill", d => d.id === rootNode.id ? "#e74c3c" : "#3498db")
             .attr("stroke", "#fff")
             .attr("stroke-width", 3);
 
-        // Add course code text
         const label = node.append("text")
             .text(d => d.id)
             .attr("dy", "0.35em")
@@ -294,7 +268,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             }
         });
 
-        // Update positions on simulation tick
         simulation.on("tick", () => {
             link.attr("d", d => {
                 return `M${d.source.x},${d.source.y}L${d.target.x},${d.target.y}`;
@@ -378,15 +351,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             applyHighlight(activeNodeRef.current);
         }
 
-        const handleZoomToNode = (event) => {
-            const requestedId = event.detail?.nodeId;
-            if (!requestedId) return;
-            zoomToNode(requestedId);
-        };
-
-        window.addEventListener("zoomToNode", handleZoomToNode);
-
-        // Drag functions
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
             d.fx = d.x;
@@ -404,9 +368,7 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             d.fy = null;
         }
 
-        // Reset function
         window.resetGraph = () => {
-            // Reset fixed positions
             nodes.forEach(node => {
                 node.fx = null;
                 node.fy = null;
@@ -421,11 +383,41 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             }
         };
 
-        // Cleanup
+        // Zoom to specific node function
+        window.zoomToNode = (nodeId) => {
+            const node = nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            const scale = 1.8;
+            const targetX = width / 2 - node.x * scale;
+            const targetY = height / 2 - node.y * scale;
+
+            svg.transition()
+                .duration(750)
+                .ease(d3.easeCubicInOut)
+                .call(
+                    zoom.transform,
+                    d3.zoomIdentity.translate(targetX, targetY).scale(scale)
+                );
+        };
+
+        // Listen for zoom events from quick search
+        const handleZoomEvent = (event) => {
+            if (event.detail?.nodeId && window.zoomToNode) {
+                window.zoomToNode(event.detail.nodeId);
+            }
+        };
+
+        window.addEventListener('zoomToNode', handleZoomEvent);
+
         return () => {
             simulation.stop();
+            window.removeEventListener('zoomToNode', handleZoomEvent);
             if (window.resetGraph) {
                 window.resetGraph = undefined;
+            }
+            if (window.zoomToNode) {
+                window.zoomToNode = undefined;
             }
             highlightRef.current = null;
             window.removeEventListener("zoomToNode", handleZoomToNode);
