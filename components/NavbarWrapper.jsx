@@ -3,13 +3,15 @@ import { useRef, useState, useEffect } from "react";
 import { FloatingNavDemo } from "./Navbar";
 import CourseGraph from "./CourseGraph";
 
+const courseCodePattern = /([A-Z]+)\s*(\d+[A-Z]*)/i;
+
 const parseCourseCode = (code) => {
   if (!code) return null;
-  const match = code.match(/([A-Z]+)\s*(\d+)/i);
+  const match = code.match(courseCodePattern);
   if (!match) return null;
   return {
     dept: match[1].toUpperCase(),
-    number: match[2],
+    number: match[2].toUpperCase(),
   };
 };
 
@@ -153,7 +155,7 @@ export function NavbarWrapper() {
         if (!response.ok) {
           throw new Error(`Course ${courseStr} not found`);
         }
-        
+
         const data = await response.json();
         
         if (!data || data.length === 0) {
@@ -194,7 +196,7 @@ export function NavbarWrapper() {
         setGraphLoading(false);
         
         setTimeout(() => {
-          document.getElementById('course-results')?.scrollIntoView({ 
+          document.getElementById('course-results')?.scrollIntoView({
             behavior: 'smooth',
             block: 'start'
           });

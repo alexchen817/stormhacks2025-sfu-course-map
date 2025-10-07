@@ -1,42 +1,43 @@
-import { GoogleGenAI } from "@google/genai";
-
-const ai = new GoogleGenAI({});
-
+// Pure regex parser - no AI, no rate limits, instant results
 export async function POST(req) {
   try {
     const { prerequisiteText } = await req.json();
-const prompt = `Extract all course codes from this prerequisite text and return them as a simple JSON array of strings.
+    
+    if (!prerequisiteText || typeof prerequisiteText !== 'string') {
+      return new Response(JSON.stringify({ courses: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-Important rules:
-- Include course codes like "CMPT 125", "MACM 101" that are TRUE university prerequisites
-- If there are alternatives (e.g., "CMPT 125 or CMPT 130"), include BOTH courses
-- If the course has already been used, but another course still requires that prerequisite, still connect that course.
+    // Extract all course codes using regex
+    // Matches patterns like: CMPT 225, CMPT 105W, MACM101, ENSC 251D
+    const coursePattern = /\b([A-Z]{2,5})\s*(\d{3,4})([A-Z]{0,2})\b/gi;
+    const matches = [...prerequisiteText.matchAll(coursePattern)];
 
-OMIT the following:
-- BC 12 or any British Columbia Grade 12 courses
-- High school level prerequisites  
-- Any university courses that are listed as ALTERNATIVES or EQUIVALENTS to BC 12 courses
-- Courses mentioned alongside phrases like "or equivalent", "or any of", when paired with BC/Grade 12 requirements
-- Example: "BC Math 12 (or equivalent, or any of MATH 100, 150, 151)" - omit ALL of these including MATH 100, 150, 151
+    // Filter out BC 12 / high school courses and create unique course codes
+    const coursesSet = new Set();
+    const excludePatterns = [
+      /^BC\s*\d+[A-Z]*$/i,                    // BC 12, BC 11, BC 12W, etc.
+      /^(MATH|CHEM|PHYS|ENGL|BIO)\s*11[A-Z]*$/i,  // Grade 11 courses
+      /^(MATH|CHEM|PHYS|ENGL|BIO)\s*12[A-Z]*$/i,  // Grade 12 courses
+    ];
 
-Include ONLY courses that are standalone university prerequisites, not courses offered as substitutes for high school requirements.
+    matches.forEach(match => {
+      const dept = match[1].toUpperCase();
+      const number = match[2];
+      const suffix = match[3] ? match[3].toUpperCase() : '';
+      const courseCode = `${dept} ${number}${suffix}`;
 
-Prerequisite text: "${prerequisiteText}"
-
-Return ONLY a valid JSON array like: ["CMPT 125", "MACM 101"]
-Do not include any explanations, just the JSON array.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
+      // Skip if it matches any exclude pattern
+      const shouldExclude = excludePatterns.some(pattern => pattern.test(courseCode));
+      
+      if (!shouldExclude) {
+        coursesSet.add(courseCode);
+      }
     });
 
-    let text = response.text.trim();
-    
-    // Remove markdown code blocks if present
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
-    const courses = JSON.parse(text);
+    const courses = Array.from(coursesSet);
 
     return new Response(JSON.stringify({ courses }), {
       status: 200,
