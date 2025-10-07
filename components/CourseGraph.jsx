@@ -285,6 +285,26 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
             fitGraphToView();
         });
 
+        const zoomToNode = (targetId) => {
+            const nodeToFocus = nodes.find(node => node.id === targetId);
+            if (!nodeToFocus) {
+                return;
+            }
+
+            const scale = 1.4;
+            const translateX = width / 2 - scale * nodeToFocus.x;
+            const translateY = (topMargin + availableHeight / 2) - scale * nodeToFocus.y;
+            const transform = d3.zoomIdentity.translate(translateX, translateY).scale(scale);
+
+            svg.transition().duration(600).call(zoom.transform, transform);
+
+            if (typeof highlightRef.current === "function") {
+                highlightRef.current(targetId);
+            }
+
+            activeNodeRef.current = targetId;
+        };
+
         const applyHighlight = (focusedId) => {
             if (!focusedId) {
                 node.style("opacity", 1);
@@ -400,6 +420,7 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
                 window.zoomToNode = undefined;
             }
             highlightRef.current = null;
+            window.removeEventListener("zoomToNode", handleZoomToNode);
         };
 
     }, [data]);

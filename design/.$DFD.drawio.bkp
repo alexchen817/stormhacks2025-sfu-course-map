@@ -1,0 +1,65 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.9 Chrome/134.0.6998.205 Electron/35.4.0 Safari/537.36" version="27.0.9">
+  <diagram name="SFU Course Graph DFD (Improved)" id="eKAzNdAu7IfEroV1cgkg">
+    <mxGraphModel dx="791" dy="766" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="khUBSF5W42iCneQy1zpq-1" target="SYtOIlXvhytC5fJlyAEb-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-14" value="Search Query" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="SYtOIlXvhytC5fJlyAEb-7">
+          <mxGeometry x="-0.0562" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="khUBSF5W42iCneQy1zpq-1" value="User" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;" parent="1" vertex="1">
+          <mxGeometry x="40" y="220" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="khUBSF5W42iCneQy1zpq-2" target="khUBSF5W42iCneQy1zpq-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-17" value="Send Prereq Data" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="SYtOIlXvhytC5fJlyAEb-16">
+          <mxGeometry x="-0.1556" y="-4" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="khUBSF5W42iCneQy1zpq-2" value="SFU Courses API" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;" parent="1" vertex="1">
+          <mxGeometry x="500" y="220" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="khUBSF5W42iCneQy1zpq-3" target="SYtOIlXvhytC5fJlyAEb-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-22" value="Send structured course data" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="SYtOIlXvhytC5fJlyAEb-21">
+          <mxGeometry x="-0.0308" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="khUBSF5W42iCneQy1zpq-3" value="Google Gemini API" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;" parent="1" vertex="1">
+          <mxGeometry x="500" y="370" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="SYtOIlXvhytC5fJlyAEb-5" target="khUBSF5W42iCneQy1zpq-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-15" value="Send Request" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="SYtOIlXvhytC5fJlyAEb-6">
+          <mxGeometry x="-0.1764" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-5" value="Input Handler" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="250" y="220" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="SYtOIlXvhytC5fJlyAEb-18" target="khUBSF5W42iCneQy1zpq-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-24" value="Text" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="SYtOIlXvhytC5fJlyAEb-23">
+          <mxGeometry x="-0.4889" y="-3" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="SYtOIlXvhytC5fJlyAEb-18" value="Visualization&amp;nbsp;&lt;div&gt;(D3.js Library)&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="370" width="120" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
