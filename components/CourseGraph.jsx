@@ -420,7 +420,6 @@ export default function CourseGraph({ data, activeNodeId, onNodeClick }) {
                 window.zoomToNode = undefined;
             }
             highlightRef.current = null;
-            window.removeEventListener("zoomToNode", handleZoomToNode);
         };
 
     }, [data]);
